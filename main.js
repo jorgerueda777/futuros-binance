@@ -970,6 +970,27 @@ Apalancamiento máximo 10 X
     }
 }
 
+// Servidor web simple para Render
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+    res.json({
+        status: 'Bot DefBinance funcionando correctamente',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.get('/health', (req, res) => {
+    res.json({ status: 'healthy', bot: 'running' });
+});
+
+app.listen(PORT, () => {
+    console.log(`🌐 Servidor web iniciado en puerto ${PORT}`);
+});
+
 const bot = new DefBinanceProfessionalBot();
 bot.start();
 
