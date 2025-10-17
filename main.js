@@ -991,6 +991,16 @@ app.listen(PORT, () => {
     console.log(`🌐 Servidor web iniciado en puerto ${PORT}`);
 });
 
+// Keep-alive ping cada 3 minutos para evitar spin down
+setInterval(() => {
+    const axios = require('axios');
+    const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+    
+    axios.get(`${url}/health`)
+        .then(() => console.log('🏓 Keep-alive ping exitoso'))
+        .catch(() => console.log('🏓 Keep-alive ping (manteniendo despierto)'));
+}, 3 * 60 * 1000); // 3 minutos
+
 const bot = new DefBinanceProfessionalBot();
 bot.start();
 
