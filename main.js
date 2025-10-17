@@ -1103,6 +1103,20 @@ app.get('/health', (req, res) => {
     res.json({ status: 'healthy', bot: 'running' });
 });
 
+app.get('/ip', async (req, res) => {
+    try {
+        const axios = require('axios');
+        const ipResponse = await axios.get('https://api.ipify.org?format=json');
+        res.json({ 
+            server_ip: ipResponse.data.ip,
+            timestamp: new Date().toISOString(),
+            region: 'Frankfurt EU Central'
+        });
+    } catch (error) {
+        res.json({ error: error.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`🌐 Servidor web iniciado en puerto ${PORT}`);
 });
