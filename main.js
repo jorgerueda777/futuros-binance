@@ -13,6 +13,7 @@ const BinanceAPI = require('./src/BinanceAPI');
 const SignalGenerator = require('./src/SignalGenerator');
 const SmartMoneyAnalyzer = require('./src/SmartMoneyAnalyzer');
 const Logger = require('./src/Logger');
+const AutoTrader = require('./src/AutoTrader');
 
 class DefBinanceProfessionalBot {
     constructor() {
@@ -39,6 +40,13 @@ class DefBinanceProfessionalBot {
         this.signalGenerator = new SignalGenerator();
         this.smartMoneyAnalyzer = new SmartMoneyAnalyzer();
         this.logger = new Logger();
+        
+        // AutoTrader para operaciones automáticas (DESHABILITADO por defecto)
+        this.autoTrader = new AutoTrader(
+            process.env.BINANCE_API_KEY,
+            process.env.BINANCE_SECRET_KEY,
+            this.logger
+        );
         
         this.isRunning = false;
         this.processedSignals = new Set();
@@ -226,6 +234,19 @@ class DefBinanceProfessionalBot {
 
         this.bot.onText(/\/getchatid/, async (msg) => {
             await this.bot.sendMessage(msg.chat.id, `📋 Chat ID: ${msg.chat.id}\n👥 Tipo: ${msg.chat.type}\n📝 Título: ${msg.chat.title || 'Sin título'}`);
+        });
+
+        // 🚀 COMANDOS DE TRADING AUTOMÁTICO
+        this.bot.onText(/\/trading_enable/, async (msg) => {
+            await this.handleTradingEnable(msg.chat.id);
+        });
+
+        this.bot.onText(/\/trading_disable/, async (msg) => {
+            await this.handleTradingDisable(msg.chat.id);
+        });
+
+        this.bot.onText(/\/trading_stats/, async (msg) => {
+            await this.handleTradingStats(msg.chat.id);
         });
 
         // Manejo de errores
@@ -533,6 +554,13 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
             });
 
             this.logger.info(`✅ Respuesta ultra rápida enviada: ${decision.action} - ${decision.confidence}%`);
+
+            // 🚀 TRADING AUTOMÁTICO - Procesar señal si cumple criterios
+            try {
+                await this.autoTrader.processSignal(symbol, decision.action, decision.confidence, decision);
+            } catch (error) {
+                this.logger.error('❌ Error en AutoTrader:', error.message);
+            }
 
         } catch (error) {
             this.logger.error('Error enviando respuesta ultra rápida:', error);
@@ -882,6 +910,11 @@ Apalancamiento máximo 10 X
 /test - Enviar señal de prueba
 /check - Verificar acceso a grupos
 
+🚀 <b>Trading Automático:</b>
+/trading_enable - Habilitar trading automático
+/trading_disable - Deshabilitar trading automático
+/trading_stats - Estadísticas de trading
+
 🔥 <b>Bot activo y monitoreando...</b>
         `;
         
@@ -960,6 +993,89 @@ Apalancamiento máximo 10 X
             
         } catch (error) {
             await this.bot.sendMessage(chatId, `❌ Error: ${error.message}`);
+        }
+    }
+
+    // 🚀 MÉTODOS DE TRADING AUTOMÁTICO
+    async handleTradingEnable(chatId) {
+        try {
+            this.autoTrader.enableTrading(true);
+            
+            const stats = this.autoTrader.getStats();
+            const message = `
+🚀 <b>TRADING AUTOMÁTICO HABILITADO</b>
+
+⚠️ <b>CONFIGURACIÓN DE SEGURIDAD:</b>
+💰 Monto por operación: $1.00 USD
+🛑 Stop Loss: -$0.50 USD
+🎯 Take Profit: +$1.00 USD
+📊 Confianza mínima: ${stats.minConfidence}%
+📈 Máx. operaciones/día: ${stats.maxDailyTrades}
+🔒 Máx. posiciones abiertas: ${stats.maxOpenPositions}
+
+✅ <b>El bot ejecutará operaciones automáticamente cuando detecte señales de alta confianza (${stats.minConfidence}%+)</b>
+
+⚠️ <i>Usa esta función bajo tu propia responsabilidad</i>
+            `.trim();
+            
+            await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+            this.logger.info('🚀 Trading automático HABILITADO por usuario');
+            
+        } catch (error) {
+            await this.bot.sendMessage(chatId, `❌ Error habilitando trading: ${error.message}`);
+        }
+    }
+
+    async handleTradingDisable(chatId) {
+        try {
+            this.autoTrader.enableTrading(false);
+            
+            const message = `
+🛑 <b>TRADING AUTOMÁTICO DESHABILITADO</b>
+
+✅ El bot ya NO ejecutará operaciones automáticamente
+📊 Solo enviará análisis y recomendaciones
+🔒 Todas las funciones de seguridad mantienen activas
+
+💡 Para reactivar usa: /trading_enable
+            `.trim();
+            
+            await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+            this.logger.info('🛑 Trading automático DESHABILITADO por usuario');
+            
+        } catch (error) {
+            await this.bot.sendMessage(chatId, `❌ Error deshabilitando trading: ${error.message}`);
+        }
+    }
+
+    async handleTradingStats(chatId) {
+        try {
+            const stats = this.autoTrader.getStats();
+            
+            const message = `
+📊 <b>ESTADÍSTICAS DE TRADING AUTOMÁTICO</b>
+
+🔄 <b>Estado:</b> ${stats.tradingEnabled ? '✅ HABILITADO' : '🛑 DESHABILITADO'}
+
+📈 <b>Operaciones Hoy:</b> ${stats.dailyTrades}/${stats.maxDailyTrades}
+🔒 <b>Posiciones Abiertas:</b> ${stats.openPositions}/${stats.maxOpenPositions}
+📊 <b>Confianza Mínima:</b> ${stats.minConfidence}%
+
+💰 <b>Configuración:</b>
+• Monto: $1.00 USD por operación
+• Stop Loss: -$0.50 USD
+• Take Profit: +$1.00 USD
+
+⚠️ <b>Límites de Seguridad:</b>
+• Máx. ${stats.maxDailyTrades} operaciones/día
+• Máx. ${stats.maxOpenPositions} posiciones simultáneas
+• Solo señales ${stats.minConfidence}%+ confianza
+            `.trim();
+            
+            await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+            
+        } catch (error) {
+            await this.bot.sendMessage(chatId, `❌ Error obteniendo estadísticas: ${error.message}`);
         }
     }
 
