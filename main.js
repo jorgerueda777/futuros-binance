@@ -1001,6 +1001,25 @@ process.on('SIGINT', () => {
     process.exit(0);
 });
 
+process.on('SIGTERM', () => {
+    console.log(chalk.yellow('\n⚠️ SIGTERM recibido - Cerrando gracefully...'));
+    bot.stop();
+    process.exit(0);
+});
+
+// Monitoreo de memoria cada 30 segundos
+setInterval(() => {
+    const memUsage = process.memoryUsage();
+    const memMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    console.log(`📊 Memoria: ${memMB}MB`);
+    
+    // Si usa más de 400MB, forzar garbage collection
+    if (memMB > 400 && global.gc) {
+        global.gc();
+        console.log('🧹 Garbage collection ejecutado');
+    }
+}, 30000);
+
 process.on('uncaughtException', (error) => {
     console.error(chalk.red('Error no capturado:'), error);
 });
