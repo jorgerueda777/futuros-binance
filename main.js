@@ -479,6 +479,27 @@ class DefBinanceProfessionalBot {
                 return;
             }
 
+            // 🤖 ANÁLISIS IA PRIORITARIO - PRIMERA PRIORIDAD
+            if (this.autoTrader.isEnabled()) {
+                try {
+                    this.logger.info(`🤖 Activando análisis IA para señal del canal: ${symbol}`);
+                    
+                    // Análisis IA inmediato con datos reales
+                    const aiAnalysis = await this.aiScalpingAnalyzer.processScalpingSignal(symbol, marketData.price);
+                    
+                    if (aiAnalysis && aiAnalysis.confidence >= 90) {
+                        this.logger.info(`🚀 IA confirma señal del canal: ${symbol} - ${aiAnalysis.confidence}%`);
+                        // Ejecutar inmediatamente sin esperar análisis tradicional
+                        await this.executeAIScalpingTrade(symbol, aiAnalysis);
+                        return; // Salir aquí, no necesitamos análisis tradicional
+                    } else if (aiAnalysis) {
+                        this.logger.info(`⚠️ IA rechaza señal del canal: ${symbol} - ${aiAnalysis.confidence}%`);
+                    }
+                } catch (error) {
+                    this.logger.error(`❌ Error en análisis IA del canal para ${symbol}:`, error.message);
+                }
+            }
+
             // 2. Análisis técnico ULTRA RÁPIDO (Smart Money, Soportes, Resistencias)
             const ultraAnalysis = await this.performSmartMoneyAnalysis(symbol, marketData, signalInfo);
             
