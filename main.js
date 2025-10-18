@@ -480,21 +480,25 @@ class DefBinanceProfessionalBot {
             }
 
             // 🤖 ANÁLISIS IA PRIORITARIO - PRIMERA PRIORIDAD
+            this.logger.info(`🔍 Verificando AutoTrader: ${this.autoTrader.isEnabled() ? 'HABILITADO' : 'DESHABILITADO'}`);
+            
             if (this.autoTrader.isEnabled()) {
                 try {
                     this.logger.info(`🤖 Activando análisis IA para señal del canal: ${symbol}`);
+                    this.logger.info(`💰 Precio para IA: $${marketData.price}`);
                     
                     // Análisis IA inmediato con datos reales
                     const aiAnalysis = await this.aiScalpingAnalyzer.processScalpingSignal(symbol, marketData.price);
+                    this.logger.info(`📊 Resultado IA: ${aiAnalysis ? `${aiAnalysis.confidence}%` : 'NULL'}`);
                     
                     if (aiAnalysis && aiAnalysis.confidence >= 80) {
                         this.logger.info(`🚀 IA confirma señal del canal: ${symbol} - ${aiAnalysis.confidence}%`);
                         
-                        // Ejecutar trade con IA
-                        await this.executeAIScalpingTrade(symbol, aiAnalysis);
-                        
-                        // Enviar señal IA al canal F77
+                        // 1. PRIMERO: Enviar señal IA al canal F77
                         await this.sendAISignalToF77(symbol, aiAnalysis);
+                        
+                        // 2. DESPUÉS: Ejecutar trade con IA
+                        await this.executeAIScalpingTrade(symbol, aiAnalysis);
                         
                         return; // Salir aquí, no necesitamos análisis tradicional
                     } else if (aiAnalysis) {
@@ -502,6 +506,7 @@ class DefBinanceProfessionalBot {
                     }
                 } catch (error) {
                     this.logger.error(`❌ Error en análisis IA del canal para ${symbol}:`, error.message);
+                    this.logger.error(`📊 Stack trace:`, error.stack);
                 }
             }
 
@@ -1057,7 +1062,7 @@ Apalancamiento máximo 10 X
             const directionEmoji = aiAnalysis.action === 'LONG' ? '🟢' : aiAnalysis.action === 'SHORT' ? '🔴' : '⚪';
             
             const message = `
-🤖 <b>BOT F77 - ANÁLISIS IA GROQ</b>
+🤖 <b>RECOMENDACIÓN IA GROQ</b>
 ${directionEmoji} <b>${symbol}</b>
 
 📊 <b>Acción:</b> ${aiAnalysis.action}
@@ -1068,7 +1073,7 @@ ${directionEmoji} <b>${symbol}</b>
 
 🧠 <b>Razón IA:</b> ${aiAnalysis.reason}
 
-⚡ <i>Análisis Groq + Ejecución automática</i>
+⚡ <i>Ejecutando automáticamente...</i>
             `.trim();
 
             await this.bot.sendMessage(process.env.TELEGRAM_CHAT_ID_F77, message, {
