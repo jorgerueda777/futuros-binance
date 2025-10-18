@@ -143,7 +143,7 @@ class AIScalpingAnalyzer {
             const prompt = this.createScalpingPrompt(scalpingData);
             
             const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-                model: 'llama-3.1-70b-versatile', // Modelo gratuito y potente
+                model: 'llama-3.1-8b-instant', // Modelo más reciente disponible
                 messages: [
                     {
                         role: 'system',
@@ -176,6 +176,11 @@ class AIScalpingAnalyzer {
 
         } catch (error) {
             this.logger.error('❌ Error en Groq AI:', error.message);
+            this.logger.error('📊 Detalles del error Groq:', {
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                data: error.response?.data
+            });
             return this.fallbackAnalysis(scalpingData);
         }
     }
