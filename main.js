@@ -487,10 +487,15 @@ class DefBinanceProfessionalBot {
                     // Análisis IA inmediato con datos reales
                     const aiAnalysis = await this.aiScalpingAnalyzer.processScalpingSignal(symbol, marketData.price);
                     
-                    if (aiAnalysis && aiAnalysis.confidence >= 90) {
+                    if (aiAnalysis && aiAnalysis.confidence >= 80) {
                         this.logger.info(`🚀 IA confirma señal del canal: ${symbol} - ${aiAnalysis.confidence}%`);
-                        // Ejecutar inmediatamente sin esperar análisis tradicional
+                        
+                        // Ejecutar trade con IA
                         await this.executeAIScalpingTrade(symbol, aiAnalysis);
+                        
+                        // Enviar señal IA al canal F77
+                        await this.sendAISignalToF77(symbol, aiAnalysis);
+                        
                         return; // Salir aquí, no necesitamos análisis tradicional
                     } else if (aiAnalysis) {
                         this.logger.info(`⚠️ IA rechaza señal del canal: ${symbol} - ${aiAnalysis.confidence}%`);
@@ -1043,6 +1048,38 @@ Apalancamiento máximo 10 X
             
         } catch (error) {
             await this.bot.sendMessage(chatId, `❌ Error: ${error.message}`);
+        }
+    }
+
+    // 📡 ENVIAR SEÑAL IA AL CANAL F77
+    async sendAISignalToF77(symbol, aiAnalysis) {
+        try {
+            const directionEmoji = aiAnalysis.action === 'LONG' ? '🟢' : aiAnalysis.action === 'SHORT' ? '🔴' : '⚪';
+            
+            const message = `
+🤖 <b>BOT F77 - ANÁLISIS IA GROQ</b>
+${directionEmoji} <b>${symbol}</b>
+
+📊 <b>Acción:</b> ${aiAnalysis.action}
+📈 <b>Confianza IA:</b> ${aiAnalysis.confidence}%
+💰 <b>Entrada:</b> $${aiAnalysis.entry}
+🛑 <b>Stop Loss:</b> $${aiAnalysis.stopLoss}
+🎯 <b>Take Profit:</b> $${aiAnalysis.takeProfit}
+
+🧠 <b>Razón IA:</b> ${aiAnalysis.reason}
+
+⚡ <i>Análisis Groq + Ejecución automática</i>
+            `.trim();
+
+            await this.bot.sendMessage(process.env.TELEGRAM_CHAT_ID_F77, message, {
+                parse_mode: 'HTML',
+                disable_web_page_preview: true
+            });
+
+            this.logger.info(`📡 Señal IA enviada al F77: ${symbol} - ${aiAnalysis.action}`);
+
+        } catch (error) {
+            this.logger.error(`❌ Error enviando señal IA al F77:`, error.message);
         }
     }
 
