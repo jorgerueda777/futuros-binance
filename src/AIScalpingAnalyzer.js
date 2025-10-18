@@ -164,7 +164,10 @@ class AIScalpingAnalyzer {
                 timeout: 5000 // 5 segundos máximo
             });
 
-            const aiResponse = JSON.parse(response.data.choices[0].message.content);
+            const rawContent = response.data.choices[0].message.content;
+            this.logger.info(`🤖 Respuesta cruda de Groq: ${rawContent.substring(0, 200)}...`);
+            
+            const aiResponse = JSON.parse(rawContent);
             
             if (this.validateAIResponse(aiResponse)) {
                 this.logger.info(`🆓 Análisis Groq completado: ${aiResponse.action} - ${aiResponse.confidence}%`);
