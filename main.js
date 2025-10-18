@@ -567,8 +567,8 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
 
             // 🚀 TRADING AUTOMÁTICO - Procesar señal si cumple criterios
             try {
-                // Si confianza ≥90%, usar análisis IA para scalping
-                if (decision.confidence >= 90) {
+                // Si confianza ≥70%, usar análisis IA para scalping (TEMPORAL PARA PRUEBAS)
+                if (decision.confidence >= 70) {
                     this.logger.info(`⚡ Señal de alta confianza detectada: ${symbol} - ${decision.confidence}%`);
                     
                     // Análisis IA para scalping ultra-preciso

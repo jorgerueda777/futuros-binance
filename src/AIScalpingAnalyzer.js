@@ -116,6 +116,8 @@ class AIScalpingAnalyzer {
 
     // Análisis con IA (GPT-4o) para scalping
     async analyzeWithAI(scalpingData) {
+        this.logger.info(`🔍 Verificando OpenAI API Key: ${this.openaiApiKey ? 'CONFIGURADA' : 'NO CONFIGURADA'}`);
+        
         if (!this.openaiApiKey) {
             this.logger.warn('⚠️ OpenAI API Key no configurada - usando análisis tradicional');
             return this.fallbackAnalysis(scalpingData);
