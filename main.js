@@ -628,18 +628,8 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
 
             this.logger.info(`✅ Respuesta ultra rápida enviada: ${decision.action} - ${decision.confidence}%`);
 
-            // 🚀 TRADING AUTOMÁTICO - Procesar señal si cumple criterios
-            try {
-                // Si confianza ≥70%, usar análisis IA para scalping (TEMPORAL PARA PRUEBAS)
-                if (decision.confidence >= 70) {
-                    this.logger.info(`⚡ Señal de alta confianza detectada: ${symbol} - ${decision.confidence}%`);
-                    
-                    // Análisis IA para scalping ultra-preciso
-                    const aiAnalysis = await this.aiScalpingAnalyzer.processScalpingSignal(symbol, marketData.price);
-                    
-                    if (aiAnalysis && aiAnalysis.confidence >= 90) {
-                        // Ejecutar con parámetros de IA
-                        await this.executeAIScalpingTrade(symbol, aiAnalysis);
+            // 🚀 TRADING AUTOMÁTICO DESHABILITADO PARA PRUEBAS
+            this.logger.info(`📊 Trading automático deshabilitado - Solo enviando análisis al F77`);
 
         } catch (error) {
             this.logger.error('Error enviando respuesta ultra rápida:', error);
