@@ -48,6 +48,12 @@ class DefBinanceProfessionalBot {
             this.logger
         );
         
+        // Restaurar estado de trading si estaba habilitado
+        if (process.env.AUTO_TRADING_ENABLED === 'true') {
+            this.autoTrader.enableTrading(true);
+            this.logger.info('🔄 Trading automático restaurado desde variables de entorno');
+        }
+        
         this.isRunning = false;
         this.processedSignals = new Set();
         this.signalCount = { hourly: 0, lastHour: new Date().getHours() };
@@ -560,6 +566,8 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
                 await this.autoTrader.processSignal(symbol, decision.action, decision.confidence, decision);
             } catch (error) {
                 this.logger.error('❌ Error en AutoTrader:', error.message);
+                // NO desactivar automáticamente - mantener habilitado para próximas señales
+                this.logger.warn('⚠️ Error temporal - Trading automático sigue habilitado');
             }
 
         } catch (error) {
@@ -1000,6 +1008,7 @@ Apalancamiento máximo 10 X
     async handleTradingEnable(chatId) {
         try {
             this.autoTrader.enableTrading(true);
+            process.env.AUTO_TRADING_ENABLED = 'true'; // Persistir estado
             
             const stats = this.autoTrader.getStats();
             const message = `
@@ -1029,6 +1038,7 @@ Apalancamiento máximo 10 X
     async handleTradingDisable(chatId) {
         try {
             this.autoTrader.enableTrading(false);
+            process.env.AUTO_TRADING_ENABLED = 'false'; // Persistir estado
             
             const message = `
 🛑 <b>TRADING AUTOMÁTICO DESHABILITADO</b>
