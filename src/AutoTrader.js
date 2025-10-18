@@ -12,6 +12,7 @@ class AutoTrader {
         this.config = {
             MIN_CONFIDENCE: 80,           // Mínimo 80% confianza
             POSITION_SIZE_USD: 1,         // $1 USD por operación
+            LEVERAGE: 15,                 // Apalancamiento 15x
             STOP_LOSS_USD: 0.50,          // -$0.50 USD stop loss
             TAKE_PROFIT_USD: 1.00,        // +$1.00 USD take profit
             MAX_DAILY_TRADES: 10,         // Máximo 10 operaciones por día
@@ -111,8 +112,12 @@ class AutoTrader {
             const minQty = parseFloat(lotSizeFilter.minQty);
             const stepSize = parseFloat(lotSizeFilter.stepSize);
             
-            // Ajustar a step size
-            const adjustedQty = Math.max(minQty, Math.floor(quantity / stepSize) * stepSize);
+            // Ajustar a step size y redondear correctamente
+            let adjustedQty = Math.max(minQty, Math.floor(quantity / stepSize) * stepSize);
+            
+            // Redondear según la precisión del step size
+            const decimals = stepSize.toString().split('.')[1]?.length || 0;
+            adjustedQty = parseFloat(adjustedQty.toFixed(decimals));
             
             this.logger.info(`📊 ${symbol}: Precio $${price.toFixed(6)}, Cantidad: ${adjustedQty}`);
             return adjustedQty;
