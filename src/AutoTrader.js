@@ -49,6 +49,9 @@ class AutoTrader {
                 url,
                 headers: {
                     'X-MBX-APIKEY': this.apiKey
+                },
+                params: {
+                    leverage: 15
                 }
             };
             
@@ -147,6 +150,21 @@ class AutoTrader {
         return true;
     }
 
+    // Configurar apalancamiento para el símbolo
+    async setLeverage(symbol) {
+        try {
+            await this.makeRequest('/fapi/v1/leverage', {
+                symbol,
+                leverage: this.config.LEVERAGE
+            }, 'POST');
+            
+            this.logger.info(`⚡ Apalancamiento configurado: ${symbol} = ${this.config.LEVERAGE}x`);
+        } catch (error) {
+            this.logger.warn(`⚠️ Error configurando apalancamiento para ${symbol}:`, error.message);
+            // No es crítico, continúa con la operación
+        }
+    }
+
     // Ejecutar orden de mercado
     async executeMarketOrder(symbol, side, quantity, confidence) {
         try {
@@ -154,7 +172,10 @@ class AutoTrader {
                 return null;
             }
 
-            this.logger.info(`🚀 Ejecutando orden: ${side} ${quantity} ${symbol} (Confianza: ${confidence}%)`);
+            // Configurar apalancamiento primero
+            await this.setLeverage(symbol);
+
+            this.logger.info(`🚀 Ejecutando orden: ${side} ${quantity} ${symbol} (Confianza: ${confidence}%) - Apalancamiento: ${this.config.LEVERAGE}x`);
 
             const orderParams = {
                 symbol,
