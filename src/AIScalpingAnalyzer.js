@@ -4,10 +4,12 @@ const { RSI, EMA, MACD } = require('technicalindicators');
 class AIScalpingAnalyzer {
     constructor(logger) {
         this.logger = logger;
+        this.groqApiKey = process.env.GROQ_API_KEY;
         this.openaiApiKey = process.env.OPENAI_API_KEY;
         
         // Debug: Mostrar todas las variables de entorno relacionadas con IA
         this.logger.info(`🔍 DEBUG - Variables de entorno IA:`);
+        this.logger.info(`- GROQ_API_KEY: ${this.groqApiKey ? 'CONFIGURADA' : 'NO CONFIGURADA'}`);
         this.logger.info(`- OPENAI_API_KEY: ${this.openaiApiKey ? 'CONFIGURADA' : 'NO CONFIGURADA'}`);
         this.logger.info(`- AI_SCALPING_ENABLED: ${process.env.AI_SCALPING_ENABLED}`);
         this.logger.info(`- AUTO_TRADING_ENABLED: ${process.env.AUTO_TRADING_ENABLED}`);
@@ -120,20 +122,71 @@ class AIScalpingAnalyzer {
         }
     }
 
-    // Análisis con IA (GPT-4o) para scalping
+    // Análisis con IA (Groq GRATIS o OpenAI) para scalping
     async analyzeWithAI(scalpingData) {
-        this.logger.info(`🔍 Verificando OpenAI API Key: ${this.openaiApiKey ? 'CONFIGURADA' : 'NO CONFIGURADA'}`);
-        
-        if (!this.openaiApiKey) {
-            this.logger.warn('⚠️ OpenAI API Key no configurada - usando análisis tradicional');
+        // Priorizar Groq (gratis) sobre OpenAI
+        if (this.groqApiKey) {
+            this.logger.info(`🆓 Usando Groq AI (GRATIS)`);
+            return await this.analyzeWithGroq(scalpingData);
+        } else if (this.openaiApiKey) {
+            this.logger.info(`💰 Usando OpenAI (PAGADO)`);
+            return await this.analyzeWithOpenAI(scalpingData);
+        } else {
+            this.logger.warn('⚠️ Ninguna API Key de IA configurada - usando análisis tradicional');
             return this.fallbackAnalysis(scalpingData);
         }
+    }
 
+    // Análisis con Groq (GRATIS)
+    async analyzeWithGroq(scalpingData) {
+        try {
+            const prompt = this.createScalpingPrompt(scalpingData);
+            
+            const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+                model: 'llama-3.1-70b-versatile', // Modelo gratuito y potente
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'Eres un experto en scalping de criptomonedas de 1 minuto. Analiza datos y da recomendaciones ultra-precisas en formato JSON.'
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                max_tokens: 300,
+                temperature: 0.1
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${this.groqApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 5000 // 5 segundos máximo
+            });
+
+            const aiResponse = JSON.parse(response.data.choices[0].message.content);
+            
+            if (this.validateAIResponse(aiResponse)) {
+                this.logger.info(`🆓 Análisis Groq completado: ${aiResponse.action} - ${aiResponse.confidence}%`);
+                return aiResponse;
+            } else {
+                this.logger.warn('⚠️ Respuesta Groq inválida - usando análisis tradicional');
+                return this.fallbackAnalysis(scalpingData);
+            }
+
+        } catch (error) {
+            this.logger.error('❌ Error en Groq AI:', error.message);
+            return this.fallbackAnalysis(scalpingData);
+        }
+    }
+
+    // Análisis con OpenAI (como respaldo)
+    async analyzeWithOpenAI(scalpingData) {
         try {
             const prompt = this.createScalpingPrompt(scalpingData);
             
             const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-                model: 'gpt-4o',
+                model: 'gpt-4o-mini', // Modelo más barato
                 messages: [
                     {
                         role: 'system',
@@ -151,22 +204,21 @@ class AIScalpingAnalyzer {
                     'Authorization': `Bearer ${this.openaiApiKey}`,
                     'Content-Type': 'application/json'
                 },
-                timeout: 3000 // 3 segundos máximo
+                timeout: 3000
             });
 
             const aiResponse = JSON.parse(response.data.choices[0].message.content);
             
-            // Validar respuesta de IA
             if (this.validateAIResponse(aiResponse)) {
-                this.logger.info(`🤖 Análisis IA completado: ${aiResponse.action} - ${aiResponse.confidence}%`);
+                this.logger.info(`🤖 Análisis OpenAI completado: ${aiResponse.action} - ${aiResponse.confidence}%`);
                 return aiResponse;
             } else {
-                this.logger.warn('⚠️ Respuesta IA inválida - usando análisis tradicional');
+                this.logger.warn('⚠️ Respuesta OpenAI inválida - usando análisis tradicional');
                 return this.fallbackAnalysis(scalpingData);
             }
 
         } catch (error) {
-            this.logger.error('❌ Error en análisis IA:', error.message);
+            this.logger.error('❌ Error en OpenAI:', error.message);
             return this.fallbackAnalysis(scalpingData);
         }
     }
@@ -211,39 +263,62 @@ RESPONDE EN JSON:
 `;
     }
 
-    // Análisis tradicional como respaldo
+    // Análisis tradicional mejorado como respaldo
     fallbackAnalysis(data) {
         let confidence = 0;
         let action = 'ESPERAR';
         let reasons = [];
 
-        // RSI extremos
-        if (data.rsi2 < 10) {
-            confidence += 30;
+        // RSI extremos (más peso)
+        if (data.rsi2 < 5) {
+            confidence += 40;
             action = 'LONG';
             reasons.push('RSI(2) oversold extremo');
-        } else if (data.rsi2 > 90) {
-            confidence += 30;
+        } else if (data.rsi2 > 95) {
+            confidence += 40;
             action = 'SHORT';
             reasons.push('RSI(2) overbought extremo');
+        } else if (data.rsi2 < 15) {
+            confidence += 25;
+            action = 'LONG';
+            reasons.push('RSI(2) oversold');
+        } else if (data.rsi2 > 85) {
+            confidence += 25;
+            action = 'SHORT';
+            reasons.push('RSI(2) overbought');
         }
 
-        // Momentum de precio
-        if (Math.abs(data.priceChange1m) > 0.3) {
-            confidence += 20;
+        // Momentum de precio fuerte
+        if (Math.abs(data.priceChange1m) > 0.5) {
+            confidence += 25;
+            reasons.push('Momentum muy fuerte 1m');
+        } else if (Math.abs(data.priceChange1m) > 0.3) {
+            confidence += 15;
             reasons.push('Momentum fuerte 1m');
         }
 
         // Volumen confirmatorio
-        if (data.volumeRatio > 2) {
-            confidence += 15;
+        if (data.volumeRatio > 3) {
+            confidence += 20;
+            reasons.push('Volumen muy alto');
+        } else if (data.volumeRatio > 2) {
+            confidence += 10;
             reasons.push('Volumen alto');
         }
 
         // Tendencia multi-timeframe
         if (data.trend1m === data.trend5m && data.trend1m !== 'NEUTRAL') {
-            confidence += 25;
+            confidence += 15;
             reasons.push('Tendencias alineadas');
+        }
+
+        // Niveles de soporte/resistencia
+        if (data.distanceToSupport < 0.5) {
+            confidence += 10;
+            reasons.push('Cerca de soporte');
+        } else if (data.distanceToResistance < 0.5) {
+            confidence += 10;
+            reasons.push('Cerca de resistencia');
         }
 
         // Solo si confianza ≥90%
