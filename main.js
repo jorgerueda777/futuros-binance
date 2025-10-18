@@ -14,6 +14,7 @@ const SignalGenerator = require('./src/SignalGenerator');
 const SmartMoneyAnalyzer = require('./src/SmartMoneyAnalyzer');
 const Logger = require('./src/Logger');
 const AutoTrader = require('./src/AutoTrader');
+const AIScalpingAnalyzer = require('./src/AIScalpingAnalyzer');
 
 class DefBinanceProfessionalBot {
     constructor() {
@@ -47,6 +48,9 @@ class DefBinanceProfessionalBot {
             process.env.BINANCE_SECRET_KEY,
             this.logger
         );
+        
+        // AIScalpingAnalyzer para análisis ultra-preciso
+        this.aiScalpingAnalyzer = new AIScalpingAnalyzer(this.logger);
         
         // Restaurar estado de trading si estaba habilitado
         if (process.env.AUTO_TRADING_ENABLED === 'true') {
@@ -563,7 +567,24 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
 
             // 🚀 TRADING AUTOMÁTICO - Procesar señal si cumple criterios
             try {
-                await this.autoTrader.processSignal(symbol, decision.action, decision.confidence, decision);
+                // Si confianza ≥90%, usar análisis IA para scalping
+                if (decision.confidence >= 90) {
+                    this.logger.info(`⚡ Señal de alta confianza detectada: ${symbol} - ${decision.confidence}%`);
+                    
+                    // Análisis IA para scalping ultra-preciso
+                    const aiAnalysis = await this.aiScalpingAnalyzer.processScalpingSignal(symbol, marketData.price);
+                    
+                    if (aiAnalysis && aiAnalysis.confidence >= 90) {
+                        // Ejecutar con parámetros de IA
+                        await this.executeAIScalpingTrade(symbol, aiAnalysis);
+                    } else {
+                        this.logger.info(`⚠️ IA no confirma señal para ${symbol} - usando análisis tradicional`);
+                        await this.autoTrader.processSignal(symbol, decision.action, decision.confidence, decision);
+                    }
+                } else {
+                    // Análisis tradicional para confianza <90%
+                    await this.autoTrader.processSignal(symbol, decision.action, decision.confidence, decision);
+                }
             } catch (error) {
                 this.logger.error('❌ Error en AutoTrader:', error.message);
                 // NO desactivar automáticamente - mantener habilitado para próximas señales
@@ -1001,6 +1022,60 @@ Apalancamiento máximo 10 X
             
         } catch (error) {
             await this.bot.sendMessage(chatId, `❌ Error: ${error.message}`);
+        }
+    }
+
+    // 🤖 EJECUTAR TRADE CON ANÁLISIS IA
+    async executeAIScalpingTrade(symbol, aiAnalysis) {
+        try {
+            this.logger.info(`🤖 Ejecutando trade IA: ${aiAnalysis.action} ${symbol} - Confianza: ${aiAnalysis.confidence}%`);
+            
+            // Configurar parámetros específicos de IA
+            const tradeParams = {
+                symbol: symbol,
+                side: aiAnalysis.action === 'LONG' ? 'BUY' : 'SELL',
+                quantity: await this.autoTrader.calculateMinQuantity(symbol, aiAnalysis.entry),
+                entryPrice: aiAnalysis.entry,
+                stopLoss: aiAnalysis.stopLoss,
+                takeProfit: aiAnalysis.takeProfit,
+                confidence: aiAnalysis.confidence,
+                reason: aiAnalysis.reason,
+                type: 'AI_SCALPING'
+            };
+
+            // Ejecutar orden con AutoTrader
+            const order = await this.autoTrader.executeMarketOrder(
+                tradeParams.symbol,
+                tradeParams.side,
+                tradeParams.quantity,
+                tradeParams.confidence
+            );
+
+            if (order) {
+                // Notificar ejecución exitosa
+                const message = `
+🤖 <b>SCALPING IA EJECUTADO</b>
+
+🎯 <b>${symbol}</b>
+📊 Acción: ${aiAnalysis.action}
+💰 Entrada: $${aiAnalysis.entry}
+🛑 Stop Loss: $${aiAnalysis.stopLoss}
+🎯 Take Profit: $${aiAnalysis.takeProfit}
+📈 Confianza: ${aiAnalysis.confidence}%
+🧠 Razón: ${aiAnalysis.reason}
+
+⚡ <i>Análisis IA + Ejecución automática</i>
+                `.trim();
+
+                await this.bot.sendMessage(process.env.TELEGRAM_CHAT_ID_F77, message, {
+                    parse_mode: 'HTML'
+                });
+
+                this.logger.info(`✅ Trade IA ejecutado exitosamente: ${order.orderId}`);
+            }
+
+        } catch (error) {
+            this.logger.error(`❌ Error ejecutando trade IA para ${symbol}:`, error.message);
         }
     }
 
