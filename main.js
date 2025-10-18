@@ -482,9 +482,15 @@ class DefBinanceProfessionalBot {
             this.logger.info(`🚀 INICIANDO análisis IA para ${symbol}`);
             
             // 🤖 ANÁLISIS IA PRIORITARIO - PRIMERA PRIORIDAD
-            this.logger.info(`🔍 Verificando AutoTrader: ${this.autoTrader.isEnabled() ? 'HABILITADO' : 'DESHABILITADO'}`);
+            let autoTraderEnabled = false;
+            try {
+                autoTraderEnabled = this.autoTrader && this.autoTrader.isEnabled();
+                this.logger.info(`🔍 Verificando AutoTrader: ${autoTraderEnabled ? 'HABILITADO' : 'DESHABILITADO'}`);
+            } catch (error) {
+                this.logger.error(`❌ Error verificando AutoTrader:`, error.message);
+            }
             
-            if (this.autoTrader.isEnabled()) {
+            if (autoTraderEnabled) {
                 try {
                     this.logger.info(`🤖 Activando análisis IA para señal del canal: ${symbol}`);
                     this.logger.info(`💰 Precio para IA: $${marketData.price}`);
