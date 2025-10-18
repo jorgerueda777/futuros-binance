@@ -479,6 +479,8 @@ class DefBinanceProfessionalBot {
                 return;
             }
 
+            this.logger.info(`🚀 INICIANDO análisis IA para ${symbol}`);
+            
             // 🤖 ANÁLISIS IA PRIORITARIO - PRIMERA PRIORIDAD
             this.logger.info(`🔍 Verificando AutoTrader: ${this.autoTrader.isEnabled() ? 'HABILITADO' : 'DESHABILITADO'}`);
             
@@ -511,12 +513,15 @@ class DefBinanceProfessionalBot {
             }
 
             // 2. Análisis técnico ULTRA RÁPIDO (Smart Money, Soportes, Resistencias)
+            this.logger.info(`📊 Iniciando análisis Smart Money para ${symbol}`);
             const ultraAnalysis = await this.performSmartMoneyAnalysis(symbol, marketData, signalInfo);
             
             // 3. DECISIÓN INMEDIATA: ENTRAR, ESPERAR
+            this.logger.info(`🎯 Tomando decisión instantánea para ${symbol}`);
             const decision = this.makeInstantDecision(ultraAnalysis, signalInfo);
             
             // 4. Enviar respuesta INMEDIATA
+            this.logger.info(`📤 Enviando respuesta ultra rápida para ${symbol}`);
             await this.sendUltraFastResponse(decision, symbol, signalInfo);
             
             const analysisTime = Date.now() - startTime;
