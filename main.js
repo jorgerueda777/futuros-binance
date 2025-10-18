@@ -482,15 +482,36 @@ class DefBinanceProfessionalBot {
             this.logger.info(`🚀 INICIANDO análisis IA para ${symbol}`);
             
             // 🤖 ANÁLISIS IA PRIORITARIO - PRIMERA PRIORIDAD
-            let autoTraderEnabled = false;
+            // 🤖 MODO SOLO IA - SIN TRADING AUTOMÁTICO
+            this.logger.info(`🔍 Trading automático: DESHABILITADO (modo prueba)`);
+            this.logger.info(`🤖 Probando SOLO análisis IA para ${symbol}`);
+            
+            // Probar IA directamente sin AutoTrader
             try {
-                autoTraderEnabled = this.autoTrader && this.autoTrader.isEnabled();
-                this.logger.info(`🔍 Verificando AutoTrader: ${autoTraderEnabled ? 'HABILITADO' : 'DESHABILITADO'}`);
+                this.logger.info(`🤖 Activando análisis IA para señal del canal: ${symbol}`);
+                this.logger.info(`💰 Precio para IA: $${marketData.price}`);
+                
+                // Análisis IA inmediato con datos reales
+                const aiAnalysis = await this.aiScalpingAnalyzer.processScalpingSignal(symbol, marketData.price);
+                this.logger.info(`📊 Resultado IA: ${aiAnalysis ? `${aiAnalysis.confidence}%` : 'NULL'}`);
+                
+                if (aiAnalysis && aiAnalysis.confidence >= 80) {
+                    this.logger.info(`🚀 IA confirma señal del canal: ${symbol} - ${aiAnalysis.confidence}%`);
+                    
+                    // Solo enviar señal al F77 (SIN ejecutar trade)
+                    await this.sendAISignalToF77(symbol, aiAnalysis);
+                    this.logger.info(`✅ Señal IA enviada al F77 (SIN ejecución automática)`);
+                    
+                    return; // Salir aquí
+                } else if (aiAnalysis) {
+                    this.logger.info(`⚠️ IA rechaza señal del canal: ${symbol} - ${aiAnalysis.confidence}%`);
+                }
             } catch (error) {
-                this.logger.error(`❌ Error verificando AutoTrader:`, error.message);
+                this.logger.error(`❌ Error en análisis IA del canal para ${symbol}:`, error.message);
+                this.logger.error(`📊 Stack trace:`, error.stack);
             }
             
-            if (autoTraderEnabled) {
+            if (false) { // Nunca se ejecuta
                 try {
                     this.logger.info(`🤖 Activando análisis IA para señal del canal: ${symbol}`);
                     this.logger.info(`💰 Precio para IA: $${marketData.price}`);
@@ -619,19 +640,6 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
                     if (aiAnalysis && aiAnalysis.confidence >= 90) {
                         // Ejecutar con parámetros de IA
                         await this.executeAIScalpingTrade(symbol, aiAnalysis);
-                    } else {
-                        this.logger.info(`⚠️ IA no confirma señal para ${symbol} - usando análisis tradicional`);
-                        await this.autoTrader.processSignal(symbol, decision.action, decision.confidence, decision);
-                    }
-                } else {
-                    // Análisis tradicional para confianza <90%
-                    await this.autoTrader.processSignal(symbol, decision.action, decision.confidence, decision);
-                }
-            } catch (error) {
-                this.logger.error('❌ Error en AutoTrader:', error.message);
-                // NO desactivar automáticamente - mantener habilitado para próximas señales
-                this.logger.warn('⚠️ Error temporal - Trading automático sigue habilitado');
-            }
 
         } catch (error) {
             this.logger.error('Error enviando respuesta ultra rápida:', error);
