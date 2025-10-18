@@ -5,6 +5,12 @@ class AIScalpingAnalyzer {
     constructor(logger) {
         this.logger = logger;
         this.openaiApiKey = process.env.OPENAI_API_KEY;
+        
+        // Debug: Mostrar todas las variables de entorno relacionadas con IA
+        this.logger.info(`🔍 DEBUG - Variables de entorno IA:`);
+        this.logger.info(`- OPENAI_API_KEY: ${this.openaiApiKey ? 'CONFIGURADA' : 'NO CONFIGURADA'}`);
+        this.logger.info(`- AI_SCALPING_ENABLED: ${process.env.AI_SCALPING_ENABLED}`);
+        this.logger.info(`- AUTO_TRADING_ENABLED: ${process.env.AUTO_TRADING_ENABLED}`);
         this.baseURL = 'https://fapi.binance.com';
         
         // Configuración para scalping 1min
