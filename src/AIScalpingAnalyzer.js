@@ -147,7 +147,7 @@ class AIScalpingAnalyzer {
                 messages: [
                     {
                         role: 'system',
-                        content: 'Eres un experto en scalping de criptomonedas de 1 minuto. Analiza datos y da recomendaciones ultra-precisas en formato JSON.'
+                        content: 'Eres un experto en scalping de criptomonedas. DEBES responder ÚNICAMENTE en formato JSON válido. NO agregues texto adicional, explicaciones o análisis fuera del JSON. SOLO JSON.'
                     },
                     {
                         role: 'user',
@@ -259,7 +259,7 @@ REQUISITOS:
 - Take Profit mínimo: +0.5%
 - Si confianza <90%, responder "ESPERAR"
 
-RESPONDE EN JSON:
+RESPONDE ÚNICAMENTE CON ESTE JSON (sin texto adicional):
 {
   "action": "LONG/SHORT/ESPERAR",
   "confidence": 0-100,
@@ -268,6 +268,8 @@ RESPONDE EN JSON:
   "takeProfit": precio_exacto,
   "reason": "razón_en_una_línea"
 }
+
+NO agregues explicaciones, análisis o texto fuera del JSON.
 `;
     }
 
