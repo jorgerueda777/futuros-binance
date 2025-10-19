@@ -70,11 +70,11 @@ class AIScalpingAnalyzer {
             const priceChange15m = ((currentPrice - closes5m[closes5m.length - 4]) / closes5m[closes5m.length - 4]) * 100;
 
             // Niveles de soporte y resistencia cercanos
-            const levels = this.calculateNearestLevels(klines1m, currentPrice);
+            const levels = this.calculateNearestLevels(klines5m, currentPrice);
 
             // Tendencias multi-timeframe
-            const trend1m = this.calculateTrend(closes1m.slice(-10));
-            const trend5m = closes5m.length > 0 ? this.calculateTrend(closes5m.slice(-5)) : 'NEUTRAL';
+            const trend5m = this.calculateTrend(closes5m.slice(-10));
+            const trend15m = closes15m.length > 0 ? this.calculateTrend(closes15m.slice(-5)) : 'NEUTRAL';
 
             return {
                 symbol,
@@ -82,15 +82,15 @@ class AIScalpingAnalyzer {
                 timestamp: new Date().toISOString(),
                 
                 // Indicadores
-                rsi2: rsi2[rsi2.length - 1],
                 rsi14: rsi14[rsi14.length - 1],
+                rsi21: rsi21[rsi21.length - 1],
                 ema9: ema9[ema9.length - 1],
                 ema21: ema21[ema21.length - 1],
                 macd: macd[macd.length - 1],
                 
                 // Precio y momentum
-                priceChange1m: Math.round(priceChange1m * 1000) / 1000,
                 priceChange5m: Math.round(priceChange5m * 1000) / 1000,
+                priceChange15m: Math.round(priceChange15m * 1000) / 1000,
                 
                 // Volumen
                 currentVolume,
@@ -104,8 +104,8 @@ class AIScalpingAnalyzer {
                 distanceToSupport: levels.distanceToSupport,
                 
                 // Tendencias
-                trend1m,
                 trend5m,
+                trend15m,
                 
                 // Datos 24h
                 priceChange24h: ticker24h ? ticker24h.priceChangePercent : 0,
