@@ -15,14 +15,13 @@ class AIScalpingAnalyzer {
         this.logger.info(`- AUTO_TRADING_ENABLED: ${process.env.AUTO_TRADING_ENABLED}`);
         this.baseURL = 'https://fapi.binance.com';
         
-        // Configuración para scalping 1min
+        // Configuración para trading manual 5min
         this.scalpingConfig = {
-            minConfidence: 90,          // Mínimo 90% para auto-ejecución
-            maxRiskPercent: 0.3,        // Máximo -0.3% riesgo
-            minRewardPercent: 0.5,      // Mínimo +0.5% ganancia
-            maxTradesPerHour: 5,        // Máximo 5 trades/hora
-            maxTradeDuration: 60,       // Máximo 60 segundos
-            timeframe: '1m'             // Scalping 1 minuto
+            minConfidence: 80,          // Mínimo 80% para señal manual
+            maxStopLoss: 0.5,           // -0.5% máximo (más conservador)
+            minTakeProfit: 1.0,         // +1.0% mínimo (mejor R:R)
+            maxDailyTrades: 20,         // Máximo 20 trades por día
+            maxHourlyTrades: 5          // Máximo 5 por hora (menos agresivo)
         };
         
         this.hourlyTrades = 0;
@@ -32,43 +31,43 @@ class AIScalpingAnalyzer {
     // Obtener datos ultra-detallados para scalping 1min
     async getScalpingData(symbol, currentPrice) {
         try {
-            // Datos paralelos para máxima velocidad
-            const [klines1m, klines5m, ticker24h, depth] = await Promise.all([
-                this.getKlines(symbol, '1m', 50),
-                this.getKlines(symbol, '5m', 20),
+            // Datos para trading manual 5min
+            const [klines5m, klines15m, ticker24h, depth] = await Promise.all([
+                this.getKlines(symbol, '5m', 50),
+                this.getKlines(symbol, '15m', 20),
                 this.get24hrTicker(symbol),
                 this.getOrderBookDepth(symbol, 10)
             ]);
 
-            if (!klines1m || klines1m.length < 20) {
-                throw new Error('Datos insuficientes para scalping');
+            if (!klines5m || klines5m.length < 20) {
+                throw new Error('Datos insuficientes para trading');
             }
 
-            // Calcular indicadores ultra-rápidos
-            const closes1m = klines1m.map(k => k.close);
-            const volumes1m = klines1m.map(k => k.volume);
-            const closes5m = klines5m ? klines5m.map(k => k.close) : [];
+            // Calcular indicadores para 5min
+            const closes5m = klines5m.map(k => k.close);
+            const volumes5m = klines5m.map(k => k.volume);
+            const closes15m = klines15m ? klines15m.map(k => k.close) : [];
 
-            // Indicadores específicos para scalping
-            const rsi2 = RSI.calculate({ values: closes1m, period: 2 });
-            const rsi14 = RSI.calculate({ values: closes1m, period: 14 });
-            const ema9 = EMA.calculate({ values: closes1m, period: 9 });
-            const ema21 = EMA.calculate({ values: closes1m, period: 21 });
+            // Indicadores para trading manual 5min
+            const rsi14 = RSI.calculate({ values: closes5m, period: 14 });
+            const rsi21 = RSI.calculate({ values: closes5m, period: 21 });
+            const ema9 = EMA.calculate({ values: closes5m, period: 9 });
+            const ema21 = EMA.calculate({ values: closes5m, period: 21 });
             const macd = MACD.calculate({
-                values: closes1m,
+                values: closes5m,
                 fastPeriod: 12,
                 slowPeriod: 26,
                 signalPeriod: 9
             });
 
-            // Análisis de volumen
-            const avgVolume = volumes1m.slice(-10).reduce((a, b) => a + b, 0) / 10;
-            const currentVolume = volumes1m[volumes1m.length - 1];
+            // Análisis de volumen 5min
+            const avgVolume = volumes5m.slice(-10).reduce((a, b) => a + b, 0) / 10;
+            const currentVolume = volumes5m[volumes5m.length - 1];
             const volumeRatio = currentVolume / avgVolume;
 
-            // Cambios de precio recientes
-            const priceChange1m = ((currentPrice - closes1m[closes1m.length - 2]) / closes1m[closes1m.length - 2]) * 100;
-            const priceChange5m = ((currentPrice - closes1m[closes1m.length - 6]) / closes1m[closes1m.length - 6]) * 100;
+            // Cambios de precio en timeframes más largos
+            const priceChange5m = ((currentPrice - closes5m[closes5m.length - 2]) / closes5m[closes5m.length - 2]) * 100;
+            const priceChange15m = ((currentPrice - closes5m[closes5m.length - 4]) / closes5m[closes5m.length - 4]) * 100;
 
             // Niveles de soporte y resistencia cercanos
             const levels = this.calculateNearestLevels(klines1m, currentPrice);
@@ -234,30 +233,30 @@ class AIScalpingAnalyzer {
     // Crear prompt especializado para scalping
     createScalpingPrompt(data) {
         return `
-ANÁLISIS SCALPING 1 MINUTO - ${data.symbol}
+ANÁLISIS TRADING MANUAL 5 MINUTOS - ${data.symbol}
 
 DATOS ACTUALES:
 - Precio: $${data.currentPrice}
-- Cambio 1m: ${data.priceChange1m > 0 ? '+' : ''}${data.priceChange1m}%
 - Cambio 5m: ${data.priceChange5m > 0 ? '+' : ''}${data.priceChange5m}%
-- RSI(2): ${Math.round(data.rsi2)}
+- Cambio 15m: ${data.priceChange15m > 0 ? '+' : ''}${data.priceChange15m}%
 - RSI(14): ${Math.round(data.rsi14)}
+- RSI(21): ${Math.round(data.rsi21)}
 - EMA9: $${data.ema9?.toFixed(6)}
 - EMA21: $${data.ema21?.toFixed(6)}
 - Volumen: ${data.volumeRatio}x promedio
 - Resistencia: $${data.nearestResistance} (${data.distanceToResistance}%)
 - Soporte: $${data.nearestSupport} (${data.distanceToSupport}%)
-- Tendencia 1m: ${data.trend1m}
 - Tendencia 5m: ${data.trend5m}
+- Tendencia 15m: ${data.trend15m}
 - Spread: ${data.bidAskSpread}%
 
-CONTEXTO: Scalping 1 minuto, operaciones de 30-60 segundos máximo.
+CONTEXTO: Trading manual 5 minutos, señales estables para ejecución manual.
 
 REQUISITOS:
-- Solo responder si confianza ≥90%
-- Stop Loss máximo: -0.3%
-- Take Profit mínimo: +0.5%
-- Si confianza <90%, responder "ESPERAR"
+- Solo responder si confianza ≥80%
+- Stop Loss máximo: -0.5%
+- Take Profit mínimo: +1.0%
+- Si confianza <80%, responder "ESPERAR"
 
 RESPONDE ÚNICAMENTE CON ESTE JSON (sin texto adicional):
 {
