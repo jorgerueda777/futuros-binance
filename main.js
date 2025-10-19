@@ -569,6 +569,12 @@ class DefBinanceProfessionalBot {
 
     async sendUltraFastResponse(decision, symbol, signalInfo) {
         try {
+            // SOLO ENVIAR SI CONFIANZA ≥80%
+            if (decision.confidence < 80) {
+                this.logger.info(`⚠️ Confianza ${decision.confidence}% < 80% - NO enviando al F77`);
+                return;
+            }
+
             // Enviar al chat F77 configurado
             const chatId = process.env.TELEGRAM_CHAT_ID_F77;
             
