@@ -502,8 +502,8 @@ class DefBinanceProfessionalBot {
                     await this.sendAISignalToF77(symbol, aiAnalysis);
                     this.logger.info(`✅ Señal IA enviada al F77`);
                     
-                    // EJECUCIÓN AUTOMÁTICA para señales IA ≥90% (balance $20)
-                    if (aiAnalysis.confidence >= 90 && this.autoTrader && this.autoTrader.isEnabled()) {
+                    // EJECUCIÓN AUTOMÁTICA para señales IA ≥80% (balance $20)
+                    if (aiAnalysis.confidence >= 80 && this.autoTrader && this.autoTrader.isEnabled()) {
                         this.logger.info(`🤖 EJECUTANDO AUTOMÁTICAMENTE: ${symbol} - ${aiAnalysis.confidence}%`);
                         
                         try {
@@ -531,8 +531,8 @@ class DefBinanceProfessionalBot {
                         } catch (error) {
                             this.logger.error(`❌ Error ejecutando trade IA automático:`, error.message);
                         }
-                    } else if (aiAnalysis.confidence >= 90) {
-                        this.logger.info(`⚠️ Señal IA ≥90% pero trading automático deshabilitado`);
+                    } else if (aiAnalysis.confidence >= 80) {
+                        this.logger.info(`⚠️ Señal IA ≥80% pero trading automático deshabilitado`);
                     }
                     
                     return;
