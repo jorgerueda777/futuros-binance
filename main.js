@@ -1262,17 +1262,20 @@ ${directionEmoji} <b>${symbol}</b>
             
             const stats = this.autoTrader.getStats();
             const message = `
-🚀 <b>TRADING AUTOMÁTICO HABILITADO</b>
+🚀 <b>TRADING AUTOMÁTICO INTELIGENTE HABILITADO</b>
 
-⚠️ <b>CONFIGURACIÓN DE SEGURIDAD:</b>
-💰 Monto por operación: $1.00 USD
-🛑 Stop Loss: -$0.50 USD
-🎯 Take Profit: +$1.00 USD
-📊 Confianza mínima: ${stats.minConfidence}%
+🤖 <b>CONFIGURACIÓN INTELIGENTE:</b>
+💰 Monto: $${stats.positionSizeUSD} USD por operación
+⚡ Apalancamiento: ${stats.leverage === 'DYNAMIC' ? 'DINÁMICO (20x-50x según activo)' : stats.leverage + 'x'}
+🛑 Stop Loss: ${stats.stopLossDynamic ? 'DINÁMICO (según análisis IA)' : 'FIJO'}
+🎯 Take Profit: ${stats.takeProfitDynamic ? 'DINÁMICO (según análisis IA)' : 'FIJO'}
+📊 Confianza mínima: ${stats.minConfidence}% (ultra-selectivo)
 📈 Máx. operaciones/día: ${stats.maxDailyTrades}
 🔒 Máx. posiciones abiertas: ${stats.maxOpenPositions}
 
-✅ <b>El bot ejecutará operaciones automáticamente cuando detecte señales de alta confianza (${stats.minConfidence}%+)</b>
+✅ <b>El bot ejecutará operaciones automáticamente SOLO con señales IA de máxima calidad (${stats.minConfidence}%+)</b>
+
+🎯 <b>Sistema inteligente:</b> Consulta Binance API en tiempo real para cálculo óptimo de posición y apalancamiento
 
 ⚠️ <i>Usa esta función bajo tu propia responsabilidad</i>
             `.trim();
@@ -1321,15 +1324,18 @@ ${directionEmoji} <b>${symbol}</b>
 🔒 <b>Posiciones Abiertas:</b> ${stats.openPositions}/${stats.maxOpenPositions}
 📊 <b>Confianza Mínima:</b> ${stats.minConfidence}%
 
-💰 <b>Configuración:</b>
-• Monto: $1.00 USD por operación
-• Stop Loss: -$0.50 USD
-• Take Profit: +$1.00 USD
+💰 <b>Configuración INTELIGENTE:</b>
+• Monto: $${stats.positionSizeUSD} USD por operación
+• Apalancamiento: ${stats.leverage === 'DYNAMIC' ? 'DINÁMICO (20x-50x)' : stats.leverage + 'x'}
+• Stop Loss: ${stats.stopLossDynamic ? 'DINÁMICO (según IA)' : 'FIJO'}
+• Take Profit: ${stats.takeProfitDynamic ? 'DINÁMICO (según IA)' : 'FIJO'}
+• Sistema: ${stats.useIntelligentSizing ? '🤖 INTELIGENTE' : '📊 BÁSICO'}
 
 ⚠️ <b>Límites de Seguridad:</b>
 • Máx. ${stats.maxDailyTrades} operaciones/día
 • Máx. ${stats.maxOpenPositions} posiciones simultáneas
-• Solo señales ${stats.minConfidence}%+ confianza
+• Solo señales IA ${stats.minConfidence}%+ confianza
+• Cálculo automático según Binance API
             `.trim();
             
             await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
