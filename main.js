@@ -510,6 +510,90 @@ class DefBinanceProfessionalBot {
         return this.smartMoneyAnalyzer.makeInstantDecision(ultraAnalysis, signalInfo);
     }
 
+    // 💰 CALCULAR POSICIÓN INTELIGENTE CON BINANCE API (SIN IA)
+    async calculateIntelligentPosition(symbol, price, balance = 20) {
+        try {
+            this.logger.info(`💰 Calculando posición para ${symbol} - Balance: $${balance}`);
+            
+            // 1. Obtener información del símbolo de Binance Futures
+            const exchangeInfo = await this.binanceAPI.getFuturesExchangeInfo();
+            const symbolInfo = exchangeInfo.symbols.find(s => s.symbol === symbol);
+            
+            if (!symbolInfo) {
+                throw new Error(`Símbolo ${symbol} no encontrado`);
+            }
+            
+            // 2. Extraer límites del símbolo
+            const lotSizeFilter = symbolInfo.filters.find(f => f.filterType === 'LOT_SIZE');
+            const minQty = parseFloat(lotSizeFilter.minQty);
+            const stepSize = parseFloat(lotSizeFilter.stepSize);
+            
+            // 3. Obtener apalancamiento máximo
+            let maxLeverage = 20; // Por defecto
+            try {
+                const leverageInfo = await this.binanceAPI.getLeverageBracket(symbol);
+                maxLeverage = Math.min(leverageInfo[0].maxLeverage || 20, 50); // Máximo 50x
+            } catch (e) {
+                this.logger.warn(`⚠️ No se pudo obtener leverage para ${symbol}, usando 20x`);
+            }
+            
+            // 4. Calcular posición objetivo ($0.85 USD)
+            const targetUSD = 0.85; // $0.85 USD por trade
+            const leverage = maxLeverage;
+            
+            // 5. Calcular cantidad exacta
+            const notionalValue = targetUSD * leverage; // Valor nocional con apalancamiento
+            const quantity = notionalValue / price; // Cantidad en el activo base
+            
+            // 6. Ajustar a step size de Binance
+            const adjustedQuantity = Math.max(
+                minQty,
+                Math.floor(quantity / stepSize) * stepSize
+            );
+            
+            this.logger.info(`📊 ${symbol}: Precio $${price}, Leverage ${leverage}x`);
+            this.logger.info(`💰 Posición: $${targetUSD} USD = ${adjustedQuantity} ${symbol.replace('USDT', '')}`);
+            this.logger.info(`📏 Límites: Min ${minQty}, Step ${stepSize}`);
+            
+            return {
+                quantity: adjustedQuantity,
+                leverage: leverage,
+                notionalValue: adjustedQuantity * price,
+                targetUSD: targetUSD
+            };
+            
+        } catch (error) {
+            this.logger.error(`❌ Error calculando posición inteligente:`, error.message);
+            // Fallback seguro
+            return {
+                quantity: 0.001,
+                leverage: 20,
+                notionalValue: 0.001 * price,
+                targetUSD: 0.5
+            };
+        }
+    }
+
+    // 🛑 CALCULAR STOP LOSS DINÁMICO
+    calculateStopLoss(price, action) {
+        const percentage = 0.005; // 0.5% stop loss
+        if (action.includes('LONG')) {
+            return price * (1 - percentage);
+        } else {
+            return price * (1 + percentage);
+        }
+    }
+
+    // 🎯 CALCULAR TAKE PROFIT DINÁMICO
+    calculateTakeProfit(price, action) {
+        const percentage = 0.015; // 1.5% take profit
+        if (action.includes('LONG')) {
+            return price * (1 + percentage);
+        } else {
+            return price * (1 - percentage);
+        }
+    }
+
     async sendUltraFastResponse(decision, symbol, signalInfo, marketData) {
         try {
             // SOLO ENVIAR SI CONFIANZA ≥80%
@@ -582,25 +666,26 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
                 this.logger.info(`🤖 EJECUTANDO AUTOMÁTICAMENTE (SmartMoney): ${symbol} - ${decision.confidence}%`);
                 
                 try {
-                    // Calcular posición para balance de $20
-                    const quantity = await this.autoTrader.calculateMinQuantity(symbol, marketData.price);
+                    // 🚀 CÁLCULO INTELIGENTE DE POSICIÓN (sin IA)
+                    const positionInfo = await this.calculateIntelligentPosition(symbol, marketData.price, 20);
                     
-                    if (quantity) {
-                        // Determinar dirección del trade
-                        const side = decision.action.includes('LONG') ? 'BUY' : 'SELL';
-                        
-                        // Ejecutar orden de mercado
-                        const order = await this.autoTrader.executeMarketOrder(
-                            symbol,
-                            side,
-                            quantity,
-                            decision.confidence
-                        );
-                        
-                        if (order) {
-                            this.logger.info(`✅ Trade SmartMoney ejecutado: ${symbol} ${side} - Cantidad: ${quantity}`);
-                        }
-                    }
+                    // Configuración inteligente con Binance API
+                    const tradeConfig = {
+                        symbol: symbol,
+                        side: decision.action.includes('LONG') ? 'BUY' : 'SELL',
+                        quantity: positionInfo.quantity,
+                        price: marketData.price,
+                        stopLoss: this.calculateStopLoss(marketData.price, decision.action),
+                        takeProfit: this.calculateTakeProfit(marketData.price, decision.action),
+                        leverage: positionInfo.leverage,
+                        targetUSD: positionInfo.targetUSD
+                    };
+                    
+                    this.logger.info(`🎯 EJECUTANDO (SmartMoney): ${tradeConfig.side} ${positionInfo.quantity} ${symbol}`);
+                    this.logger.info(`💰 Valor: $${positionInfo.targetUSD} USD con ${positionInfo.leverage}x leverage`);
+                    
+                    await this.autoTrader.executeTrade(tradeConfig);
+                    this.logger.info(`✅ Trade SmartMoney ejecutado: ${symbol} ${tradeConfig.side} - $${positionInfo.targetUSD}`);
                     
                 } catch (error) {
                     this.logger.error(`❌ Error ejecutando trade SmartMoney automático:`, error.message);
