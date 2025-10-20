@@ -529,13 +529,13 @@ class DefBinanceProfessionalBot {
             const minQty = parseFloat(lotSizeFilter.minQty);
             const stepSize = parseFloat(lotSizeFilter.stepSize);
             
-            // 3. Obtener apalancamiento máximo
-            let maxLeverage = 20; // Por defecto
+            // 3. Obtener apalancamiento máximo (limitado a 15x)
+            let maxLeverage = 15; // Por defecto 15x
             try {
                 const leverageInfo = await this.binanceAPI.getLeverageBracket(symbol);
-                maxLeverage = Math.min(leverageInfo[0].maxLeverage || 20, 50); // Máximo 50x
+                maxLeverage = Math.min(leverageInfo[0].maxLeverage || 15, 15); // Máximo 15x
             } catch (e) {
-                this.logger.warn(`⚠️ No se pudo obtener leverage para ${symbol}, usando 20x`);
+                this.logger.warn(`⚠️ No se pudo obtener leverage para ${symbol}, usando 15x`);
             }
             
             // 4. Calcular posición objetivo ($0.40 USD)
@@ -568,7 +568,7 @@ class DefBinanceProfessionalBot {
             // Fallback seguro
             return {
                 quantity: 0.001,
-                leverage: 20,
+                leverage: 15,
                 notionalValue: 0.001 * price,
                 targetUSD: 0.40
             };
@@ -668,7 +668,7 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
                 
                 try {
                     // 🚀 CÁLCULO INTELIGENTE DE POSICIÓN (sin IA)
-                    const positionInfo = await this.calculateIntelligentPosition(symbol, marketData.price, 20);
+                    const positionInfo = await this.calculateIntelligentPosition(symbol, marketData.price, 15);
                     
                     // Configuración inteligente con Binance API
                     const tradeConfig = {
