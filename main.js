@@ -14,7 +14,7 @@ const SignalGenerator = require('./src/SignalGenerator');
 const SmartMoneyAnalyzer = require('./src/SmartMoneyAnalyzer');
 const Logger = require('./src/Logger');
 const AutoTrader = require('./src/AutoTrader');
-const AIScalpingAnalyzer = require('./src/AIScalpingAnalyzer');
+// IA ELIMINADA - Solo SmartMoney profesional
 // IA ELIMINADA - Solo análisis técnico tradicional
 
 class DefBinanceProfessionalBot {
@@ -50,8 +50,7 @@ class DefBinanceProfessionalBot {
             this.logger
         );
         
-        // AIScalpingAnalyzer para análisis ultra-preciso
-        this.aiScalpingAnalyzer = new AIScalpingAnalyzer(this.logger);
+        // IA ELIMINADA - Solo SmartMoney profesional
         
         // Restaurar estado de trading si estaba habilitado
         if (process.env.AUTO_TRADING_ENABLED === 'true') {
@@ -480,65 +479,9 @@ class DefBinanceProfessionalBot {
                 return;
             }
 
-            this.logger.info(`🚀 INICIANDO análisis IA para ${symbol}`);
+            this.logger.info(`🚀 INICIANDO análisis SmartMoney para ${symbol}`);
             
-            // 🤖 ANÁLISIS IA PRIORITARIO - PRIMERA PRIORIDAD
-            try {
-                this.logger.info(`🤖 Activando análisis IA para señal del canal: ${symbol}`);
-                this.logger.info(`💰 Precio para IA: $${marketData.price}`);
-                
-                // Análisis IA inmediato con datos reales
-                const aiAnalysis = await this.aiScalpingAnalyzer.processScalpingSignal(symbol, marketData.price);
-                this.logger.info(`📊 Resultado IA: ${aiAnalysis ? `${aiAnalysis.confidence}%` : 'NULL'}`);
-                
-                if (aiAnalysis && aiAnalysis.confidence >= 90) {
-                    this.logger.info(`🚀 IA confirma señal del canal: ${symbol} - ${aiAnalysis.confidence}%`);
-                    
-                    // Enviar señal al F77 siempre
-                    await this.sendAISignalToF77(symbol, aiAnalysis);
-                    this.logger.info(`✅ Señal IA enviada al F77`);
-                    
-                    // EJECUCIÓN AUTOMÁTICA para señales IA ≥90%
-                    if (aiAnalysis.confidence >= 90 && this.autoTrader && this.autoTrader.isEnabled()) {
-                        this.logger.info(`🤖 EJECUTANDO AUTOMÁTICAMENTE: ${symbol} - ${aiAnalysis.confidence}%`);
-                        
-                        try {
-                            // 🚀 CÁLCULO INTELIGENTE DE POSICIÓN
-                            const positionInfo = await this.calculateIntelligentPosition(symbol, aiAnalysis.entry, 20);
-                            
-                            // Configuración inteligente con Binance API
-                            const tradeConfig = {
-                                symbol: symbol,
-                                side: aiAnalysis.action === 'LONG' ? 'BUY' : 'SELL',
-                                quantity: positionInfo.quantity,
-                                price: aiAnalysis.entry,
-                                stopLoss: aiAnalysis.stopLoss,
-                                takeProfit: aiAnalysis.takeProfit,
-                                leverage: positionInfo.leverage,
-                                targetUSD: positionInfo.targetUSD
-                            };
-                            
-                            this.logger.info(`🎯 EJECUTANDO: ${tradeConfig.side} ${positionInfo.quantity} ${symbol}`);
-                            this.logger.info(`💰 Valor: $${positionInfo.targetUSD} USD con ${positionInfo.leverage}x leverage`);
-                            
-                            await this.autoTrader.executeTrade(tradeConfig);
-                            this.logger.info(`✅ Trade IA ejecutado: ${symbol} ${aiAnalysis.action} - $${positionInfo.targetUSD}`);
-                            
-                        } catch (error) {
-                            this.logger.error(`❌ Error ejecutando trade IA automático:`, error.message);
-                        }
-                    } else if (aiAnalysis.confidence >= 90) {
-                        this.logger.info(`⚠️ Señal IA ≥90% pero trading automático deshabilitado`);
-                    }
-                    
-                    return;
-                } else if (aiAnalysis) {
-                    this.logger.info(`⚠️ IA rechaza señal del canal: ${symbol} - ${aiAnalysis.confidence}%`);
-                }
-            } catch (error) {
-                this.logger.error(`❌ Error en análisis IA del canal para ${symbol}:`, error.message);
-                this.logger.error(`📊 Stack trace:`, error.stack);
-            }
+            // IA ELIMINADA - Solo análisis SmartMoney profesional
 
             // 2. Análisis técnico ULTRA RÁPIDO (Smart Money, Soportes, Resistencias)
             this.logger.info(`📊 Iniciando análisis Smart Money para ${symbol}`);
@@ -1429,37 +1372,7 @@ ${directionEmoji} <b>${symbol}</b>
         }
     }
 
-    // 📡 ENVIAR SEÑAL IA AL CANAL F77
-    async sendAISignalToF77(symbol, aiAnalysis) {
-        try {
-            const directionEmoji = aiAnalysis.action === 'LONG' ? '🟢' : aiAnalysis.action === 'SHORT' ? '🔴' : '⚪';
-            
-            const message = `
-🤖 <b>RECOMENDACIÓN IA GROQ</b>
-${directionEmoji} <b>${symbol}</b>
-
-📊 <b>Acción:</b> ${aiAnalysis.action}
-📈 <b>Confianza IA:</b> ${aiAnalysis.confidence}%
-💰 <b>Entrada:</b> $${aiAnalysis.entry}
-🛑 <b>Stop Loss:</b> $${aiAnalysis.stopLoss}
-🎯 <b>Take Profit:</b> $${aiAnalysis.takeProfit}
-
-🧠 <b>Razón IA:</b> ${aiAnalysis.reason}
-
-⚡ <i>Ejecutando automáticamente...</i>
-            `.trim();
-
-            await this.bot.sendMessage(process.env.TELEGRAM_CHAT_ID_F77, message, {
-                parse_mode: 'HTML',
-                disable_web_page_preview: true
-            });
-
-            this.logger.info(`📡 Señal IA enviada al F77: ${symbol} - ${aiAnalysis.action}`);
-
-        } catch (error) {
-            this.logger.error(`❌ Error enviando señal IA al F77:`, error.message);
-        }
-    }
+    // IA ELIMINADA - Solo SmartMoney profesional
 
     stop() {
         this.isRunning = false;
