@@ -297,6 +297,8 @@ class AutoTrader {
             });
             
             const order = orderResponse.data;
+            this.logger.info(`📊 ORDEN STATUS: ${order.status} - OrderID: ${order.orderId}`);
+            this.logger.info(`📊 ORDEN DETAILS: ${JSON.stringify(order)}`);
             
             if (order.status === 'FILLED') {
                 this.dailyTrades++;
@@ -322,6 +324,9 @@ class AutoTrader {
                 this.logger.info(`✅ SL/TP configuración completada para ${symbol}`);
                 
                 return order;
+            } else {
+                this.logger.warn(`⚠️ ORDEN NO FILLED: Status=${order.status} - NO se configurará SL/TP`);
+                this.logger.warn(`📊 Orden no ejecutada completamente: ${JSON.stringify(order)}`);
             }
 
             return null;
