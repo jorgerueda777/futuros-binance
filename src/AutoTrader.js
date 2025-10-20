@@ -296,11 +296,36 @@ class AutoTrader {
                 }
             });
             
-            const order = orderResponse.data;
-            this.logger.info(`📊 ORDEN STATUS: ${order.status} - OrderID: ${order.orderId}`);
-            this.logger.info(`📊 ORDEN DETAILS: ${JSON.stringify(order)}`);
+            let order = orderResponse.data;
+            this.logger.info(`📊 ORDEN STATUS INICIAL: ${order.status} - OrderID: ${order.orderId}`);
             
-            if (order.status === 'FILLED') {
+            // Si la orden está NEW, esperar un poco y consultar el status
+            if (order.status === 'NEW') {
+                this.logger.info(`⏳ Orden NEW, esperando 2 segundos y consultando status...`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Consultar status de la orden
+                try {
+                    const statusParams = {
+                        symbol: symbol,
+                        orderId: order.orderId,
+                        timestamp: Date.now()
+                    };
+                    const statusQueryString = new URLSearchParams(statusParams).toString();
+                    const statusSignature = this.generateSignature(statusQueryString);
+                    
+                    const statusResponse = await axios.get(`${this.baseURL}/fapi/v1/order?${statusQueryString}&signature=${statusSignature}`, {
+                        headers: { 'X-MBX-APIKEY': this.apiKey }
+                    });
+                    
+                    order = statusResponse.data;
+                    this.logger.info(`📊 ORDEN STATUS ACTUALIZADO: ${order.status} - Executed: ${order.executedQty}`);
+                } catch (statusError) {
+                    this.logger.warn(`⚠️ Error consultando status de orden: ${statusError.message}`);
+                }
+            }
+            
+            if (order.status === 'FILLED' || (order.executedQty && parseFloat(order.executedQty) > 0)) {
                 this.dailyTrades++;
                 const entryPrice = parseFloat(order.avgPrice || order.price);
                 
