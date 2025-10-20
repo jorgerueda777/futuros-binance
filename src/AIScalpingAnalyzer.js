@@ -31,12 +31,14 @@ class AIScalpingAnalyzer {
     // Obtener datos ultra-detallados para scalping 1min
     async getScalpingData(symbol, currentPrice) {
         try {
-            // Datos para trading manual 5min
-            const [klines5m, klines15m, ticker24h, depth] = await Promise.all([
-                this.getKlines(symbol, '5m', 50),
-                this.getKlines(symbol, '15m', 20),
+            // Datos COMPLETOS para análisis profesional IA
+            const [klines5m, klines15m, ticker24h, depth, openInterest, fundingRate] = await Promise.all([
+                this.getKlines(symbol, '5m', 100),    // Más datos históricos
+                this.getKlines(symbol, '15m', 50),
                 this.get24hrTicker(symbol),
-                this.getOrderBookDepth(symbol, 10)
+                this.getOrderBookDepth(symbol, 20),   // Más profundidad
+                this.getOpenInterest(symbol),         // OI actual
+                this.getFundingRate(symbol)           // Funding rate
             ]);
 
             if (!klines5m || klines5m.length < 20) {
@@ -446,7 +448,8 @@ NO agregues explicaciones, análisis o texto fuera del JSON.
                 priceChangePercent: parseFloat(response.data.priceChangePercent)
             };
         } catch (error) {
-            return null;
+            this.logger.error(`Error obteniendo ticker 24h:`, error.message);
+            return { priceChangePercent: 0 };
         }
     }
 
