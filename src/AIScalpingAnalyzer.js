@@ -250,42 +250,66 @@ class AIScalpingAnalyzer {
     // Crear prompt profesional para trading 5min
     createScalpingPrompt(data) {
         return `
-ANÁLISIS TRADING MANUAL 5 MINUTOS - ${data.symbol}
+ANÁLISIS SCALPING PROFESIONAL - ${data.symbol}
 
-DATOS ACTUALES:
-- Precio: $${data.currentPrice}
+📊 DATOS DE MERCADO:
+- Precio Actual: $${data.currentPrice}
 - Cambio 5m: ${data.priceChange5m > 0 ? '+' : ''}${data.priceChange5m}%
 - Cambio 15m: ${data.priceChange15m > 0 ? '+' : ''}${data.priceChange15m}%
-- RSI(14): ${Math.round(data.rsi14)}
+- Cambio 24h: ${data.priceChange24h > 0 ? '+' : ''}${data.priceChange24h}%
+
+🔍 INDICADORES TÉCNICOS:
+- RSI(14): ${Math.round(data.rsi14)} ${data.rsi14 < 30 ? '(OVERSOLD)' : data.rsi14 > 70 ? '(OVERBOUGHT)' : '(NEUTRAL)'}
 - RSI(21): ${Math.round(data.rsi21)}
-- EMA9: $${data.ema9?.toFixed(6)}
-- EMA21: $${data.ema21?.toFixed(6)}
-- Volumen: ${data.volumeRatio}x promedio
-- Resistencia: $${data.nearestResistance} (${data.distanceToResistance}%)
-- Soporte: $${data.nearestSupport} (${data.distanceToSupport}%)
+- EMA9: $${data.ema9?.toFixed(6)} ${data.currentPrice > data.ema9 ? '(PRECIO ARRIBA)' : '(PRECIO ABAJO)'}
+- EMA21: $${data.ema21?.toFixed(6)} ${data.currentPrice > data.ema21 ? '(PRECIO ARRIBA)' : '(PRECIO ABAJO)'}
+- MACD: ${data.macd ? 'Disponible' : 'N/A'}
+
+📈 NIVELES CRÍTICOS (SOPORTES/RESISTENCIAS):
+- RESISTENCIA: $${data.nearestResistance} (${data.distanceToResistance > 0 ? '+' : ''}${data.distanceToResistance}% del precio actual)
+- SOPORTE: $${data.nearestSupport} (${data.distanceToSupport > 0 ? '+' : ''}${data.distanceToSupport}% del precio actual)
+- Distancia a Resistencia: ${Math.abs(data.distanceToResistance)}%
+- Distancia a Soporte: ${Math.abs(data.distanceToSupport)}%
+
+🎯 ANÁLISIS DE TENDENCIA:
 - Tendencia 5m: ${data.trend5m}
 - Tendencia 15m: ${data.trend15m}
-- Spread: ${data.bidAskSpread}%
+- Alineación: ${data.trend5m === data.trend15m ? 'ALINEADAS ✅' : 'DIVERGENTES ⚠️'}
 
-CONTEXTO PROFESIONAL: 
-Análisis técnico profesional de 5 minutos con datos institucionales. Las señales deben ser estables y dar tiempo suficiente para ejecución manual. Considera el Open Interest y Funding Rate como indicadores clave del sentimiento institucional.
+💰 VOLUMEN Y LIQUIDEZ:
+- Volumen Ratio: ${data.volumeRatio}x promedio ${data.volumeRatio > 2 ? '(ALTO)' : data.volumeRatio < 0.5 ? '(BAJO)' : '(NORMAL)'}
+- Spread Bid/Ask: ${data.bidAskSpread}%
+- Order Book: ${data.orderBookImbalance > 0 ? 'BIAS ALCISTA' : data.orderBookImbalance < 0 ? 'BIAS BAJISTA' : 'EQUILIBRADO'}
 
-CRITERIOS PROFESIONALES:
-- Solo señales de ALTA CALIDAD (confianza ≥80%)
-- Risk/Reward mínimo 1:2 
-- Stop Loss máximo: -0.5% (conservador)
-- Take Profit mínimo: +1.0% (rentable)
-- Si confianza <80%, responder "ESPERAR"
-- Priorizar calidad sobre cantidad
+🧠 INSTRUCCIONES PARA IA:
+
+DEBES ANALIZAR:
+1. ¿Está el precio cerca de SOPORTE (posible rebote LONG) o RESISTENCIA (posible rechazo SHORT)?
+2. ¿Los RSI indican OVERSOLD (compra) o OVERBOUGHT (venta)?
+3. ¿Las EMAs confirman la dirección o sugieren REVERSIÓN?
+4. ¿El volumen confirma el movimiento o es débil?
+5. ¿Las tendencias multi-timeframe están alineadas o hay DIVERGENCIA?
+
+ESTRATEGIAS:
+- CONTINUACIÓN: Si tendencias alineadas + volumen alto + lejos de niveles críticos
+- REVERSIÓN: Si precio en soporte/resistencia + RSI extremo + divergencia de tendencias
+- BREAKOUT: Si precio rompe resistencia/soporte con volumen alto
+
+CRITERIOS ESTRICTOS:
+- Confianza ≥90% para señales de ALTA CALIDAD
+- Risk/Reward mínimo 1:2.5 (SL: 0.8% / TP: 2.0%)
+- Si análisis no es claro, responder "ESPERAR"
+- Considera SIEMPRE soportes y resistencias
+- Analiza REVERSIONES y CONTINUACIONES por igual
 
 RESPONDE SOLO CON ESTE JSON:
 {
   "action": "LONG/SHORT/ESPERAR",
-  "confidence": 85,
-  "entry": 1.2345,
-  "stopLoss": 1.2300,
-  "takeProfit": 1.2400,
-  "reason": "RSI oversold + tendencia alcista"
+  "confidence": 92,
+  "entry": ${data.currentPrice},
+  "stopLoss": ${data.currentPrice * 0.992},
+  "takeProfit": ${data.currentPrice * 1.020},
+  "reason": "Análisis detallado con soportes/resistencias y reversión/continuación"
 }
 `;
     }
