@@ -10,7 +10,7 @@ class AutoTrader {
         
         // CONFIGURACIÓN INTELIGENTE ACTUALIZADA
         this.config = {
-            MIN_CONFIDENCE: 80,           // Mínimo 80% confianza IA (selectivo)
+            MIN_CONFIDENCE: 60,           // Mínimo 60% confianza SmartMoney (agresivo)
             POSITION_SIZE_USD: 0.40,      // $0.40 USD por operación (inteligente)
             LEVERAGE: 'DYNAMIC',          // Apalancamiento dinámico según activo
             STOP_LOSS_DYNAMIC: true,      // SL según análisis IA

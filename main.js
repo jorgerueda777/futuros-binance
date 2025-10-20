@@ -597,9 +597,9 @@ class DefBinanceProfessionalBot {
 
     async sendUltraFastResponse(decision, symbol, signalInfo, marketData) {
         try {
-            // SOLO ENVIAR SI CONFIANZA ≥80%
-            if (decision.confidence < 80) {
-                this.logger.info(`⚠️ Confianza ${decision.confidence}% < 80% - NO enviando al F77`);
+            // SOLO ENVIAR SI CONFIANZA ≥60%
+            if (decision.confidence < 60) {
+                this.logger.info(`⚠️ Confianza ${decision.confidence}% < 60% - NO enviando al F77`);
                 return;
             }
 
@@ -662,8 +662,8 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
 
             this.logger.info(`✅ Respuesta ultra rápida enviada: ${decision.action} - ${decision.confidence}%`);
 
-            // 🚀 TRADING AUTOMÁTICO CON SMARTMONEY
-            if (decision.confidence >= 80 && this.autoTrader && this.autoTrader.isEnabled()) {
+            // 🚀 TRADING AUTOMÁTICO CON SMARTMONEY (60% UMBRAL)
+            if (decision.confidence >= 60 && this.autoTrader && this.autoTrader.isEnabled()) {
                 this.logger.info(`🤖 EJECUTANDO AUTOMÁTICAMENTE (SmartMoney): ${symbol} - ${decision.confidence}%`);
                 
                 try {
@@ -692,10 +692,10 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
                 } catch (error) {
                     this.logger.error(`❌ Error ejecutando trade SmartMoney automático:`, error.message);
                 }
-            } else if (decision.confidence >= 80) {
-                this.logger.info(`⚠️ Señal SmartMoney ≥80% pero trading automático deshabilitado`);
+            } else if (decision.confidence >= 60) {
+                this.logger.info(`⚠️ Señal SmartMoney ≥60% pero trading automático deshabilitado`);
             } else {
-                this.logger.info(`📊 Trading automático: Confianza ${decision.confidence}% < 80% - Solo análisis`);
+                this.logger.info(`📊 Trading automático: Confianza ${decision.confidence}% < 60% - Solo análisis`);
             }
 
         } catch (error) {
