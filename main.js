@@ -492,7 +492,7 @@ class DefBinanceProfessionalBot {
             
             // 4. Enviar respuesta INMEDIATA
             this.logger.info(`📤 Enviando respuesta ultra rápida para ${symbol}`);
-            await this.sendUltraFastResponse(decision, symbol, signalInfo);
+            await this.sendUltraFastResponse(decision, symbol, signalInfo, marketData);
             
             const analysisTime = Date.now() - startTime;
             this.logger.info(`⚡ Análisis completado en ${analysisTime}ms`);
@@ -510,7 +510,7 @@ class DefBinanceProfessionalBot {
         return this.smartMoneyAnalyzer.makeInstantDecision(ultraAnalysis, signalInfo);
     }
 
-    async sendUltraFastResponse(decision, symbol, signalInfo) {
+    async sendUltraFastResponse(decision, symbol, signalInfo, marketData) {
         try {
             // SOLO ENVIAR SI CONFIANZA ≥80%
             if (decision.confidence < 80) {
@@ -577,8 +577,39 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
 
             this.logger.info(`✅ Respuesta ultra rápida enviada: ${decision.action} - ${decision.confidence}%`);
 
-            // 🚀 TRADING AUTOMÁTICO DESHABILITADO PARA PRUEBAS
-            this.logger.info(`📊 Trading automático deshabilitado - Solo enviando análisis al F77`);
+            // 🚀 TRADING AUTOMÁTICO CON SMARTMONEY
+            if (decision.confidence >= 80 && this.autoTrader && this.autoTrader.isEnabled()) {
+                this.logger.info(`🤖 EJECUTANDO AUTOMÁTICAMENTE (SmartMoney): ${symbol} - ${decision.confidence}%`);
+                
+                try {
+                    // Calcular posición para balance de $20
+                    const quantity = await this.autoTrader.calculateMinQuantity(symbol, marketData.price);
+                    
+                    if (quantity) {
+                        // Determinar dirección del trade
+                        const side = decision.action.includes('LONG') ? 'BUY' : 'SELL';
+                        
+                        // Ejecutar orden de mercado
+                        const order = await this.autoTrader.executeMarketOrder(
+                            symbol,
+                            side,
+                            quantity,
+                            decision.confidence
+                        );
+                        
+                        if (order) {
+                            this.logger.info(`✅ Trade SmartMoney ejecutado: ${symbol} ${side} - Cantidad: ${quantity}`);
+                        }
+                    }
+                    
+                } catch (error) {
+                    this.logger.error(`❌ Error ejecutando trade SmartMoney automático:`, error.message);
+                }
+            } else if (decision.confidence >= 80) {
+                this.logger.info(`⚠️ Señal SmartMoney ≥80% pero trading automático deshabilitado`);
+            } else {
+                this.logger.info(`📊 Trading automático: Confianza ${decision.confidence}% < 80% - Solo análisis`);
+            }
 
         } catch (error) {
             this.logger.error('Error enviando respuesta ultra rápida:', error);
