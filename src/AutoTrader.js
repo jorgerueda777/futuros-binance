@@ -276,14 +276,27 @@ class AutoTrader {
             await this.setDynamicLeverage(symbol, leverage);
 
             // 2. Ejecutar orden de mercado
+            const timestamp = Date.now();
             const orderParams = {
-                symbol,
-                side,
+                symbol: symbol,
+                side: side,
                 type: 'MARKET',
-                quantity: quantity.toString()
+                quantity: quantity.toString(),
+                timestamp: timestamp
             };
 
-            const order = await this.makeRequest('/fapi/v1/order', orderParams, 'POST');
+            const orderQueryString = new URLSearchParams(orderParams).toString();
+            const orderSignature = this.generateSignature(orderQueryString);
+            
+            const orderResponse = await axios.post(`${this.baseURL}/fapi/v1/order`, 
+                orderQueryString + `&signature=${orderSignature}`, {
+                headers: {
+                    'X-MBX-APIKEY': this.apiKey,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            });
+            
+            const order = orderResponse.data;
             
             if (order.status === 'FILLED') {
                 this.dailyTrades++;
@@ -351,28 +364,62 @@ class AutoTrader {
             
             // Stop Loss según análisis IA
             if (stopLoss && stopLoss > 0) {
-                const slOrder = await this.makeRequest('/fapi/v1/order', {
-                    symbol,
-                    side: isLong ? 'SELL' : 'BUY',
-                    type: 'STOP_MARKET',
-                    quantity: quantity.toString(),
-                    stopPrice: stopLoss.toString()
-                }, 'POST');
-                
-                this.logger.info(`🛑 SL dinámico configurado: $${stopLoss}`);
+                try {
+                    const timestamp = Date.now();
+                    const slParams = {
+                        symbol: symbol,
+                        side: isLong ? 'SELL' : 'BUY',
+                        type: 'STOP_MARKET',
+                        quantity: quantity.toString(),
+                        stopPrice: stopLoss.toString(),
+                        timestamp: timestamp
+                    };
+                    
+                    const slQueryString = new URLSearchParams(slParams).toString();
+                    const slSignature = this.generateSignature(slQueryString);
+                    
+                    const slResponse = await axios.post(`${this.baseURL}/fapi/v1/order`, 
+                        slQueryString + `&signature=${slSignature}`, {
+                        headers: {
+                            'X-MBX-APIKEY': this.apiKey,
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
+                    });
+                    
+                    this.logger.info(`🛑 SL dinámico configurado: $${stopLoss}`);
+                } catch (slError) {
+                    this.logger.warn(`⚠️ Error configurando SL: ${slError.message}`);
+                }
             }
 
             // Take Profit según análisis IA
             if (takeProfit && takeProfit > 0) {
-                const tpOrder = await this.makeRequest('/fapi/v1/order', {
-                    symbol,
-                    side: isLong ? 'SELL' : 'BUY',
-                    type: 'TAKE_PROFIT_MARKET',
-                    quantity: quantity.toString(),
-                    stopPrice: takeProfit.toString()
-                }, 'POST');
-                
-                this.logger.info(`🎯 TP dinámico configurado: $${takeProfit}`);
+                try {
+                    const timestamp = Date.now();
+                    const tpParams = {
+                        symbol: symbol,
+                        side: isLong ? 'SELL' : 'BUY',
+                        type: 'TAKE_PROFIT_MARKET',
+                        quantity: quantity.toString(),
+                        stopPrice: takeProfit.toString(),
+                        timestamp: timestamp
+                    };
+                    
+                    const tpQueryString = new URLSearchParams(tpParams).toString();
+                    const tpSignature = this.generateSignature(tpQueryString);
+                    
+                    const tpResponse = await axios.post(`${this.baseURL}/fapi/v1/order`, 
+                        tpQueryString + `&signature=${tpSignature}`, {
+                        headers: {
+                            'X-MBX-APIKEY': this.apiKey,
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
+                    });
+                    
+                    this.logger.info(`🎯 TP dinámico configurado: $${takeProfit}`);
+                } catch (tpError) {
+                    this.logger.warn(`⚠️ Error configurando TP: ${tpError.message}`);
+                }
             }
 
         } catch (error) {
