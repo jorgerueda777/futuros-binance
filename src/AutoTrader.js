@@ -15,8 +15,8 @@ class AutoTrader {
             LEVERAGE: 'DYNAMIC',          // Apalancamiento dinámico según activo
             STOP_LOSS_DYNAMIC: true,      // SL según análisis IA
             TAKE_PROFIT_DYNAMIC: true,    // TP según análisis IA
-            MAX_DAILY_TRADES: 5,          // Máximo 5 operaciones por día (conservador)
-            MAX_OPEN_POSITIONS: 2,        // Máximo 2 posiciones abiertas (seguro)
+            MAX_DAILY_TRADES: 100,        // Máximo 100 operaciones por día (agresivo)
+            MAX_OPEN_POSITIONS: 10,       // Máximo 10 posiciones abiertas (ampliado)
             TRADING_ENABLED: false,       // Estado actual (se mantiene)
             USE_INTELLIGENT_SIZING: true  // Usar sistema inteligente Binance API
         };
