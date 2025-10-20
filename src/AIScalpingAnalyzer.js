@@ -146,7 +146,7 @@ class AIScalpingAnalyzer {
                 messages: [
                     {
                         role: 'system',
-                        content: 'Eres un TRADER PROFESIONAL especializado en análisis técnico de 5 minutos para trading manual. Analizas señales del mercado con datos institucionales (OI, Funding Rate) para dar recomendaciones precisas. DEBES responder ÚNICAMENTE en formato JSON válido. NO agregues texto adicional.'
+                        content: 'Eres un TRADER PROFESIONAL especializado en análisis técnico de 5 minutos. RESPONDE ÚNICAMENTE CON JSON VÁLIDO. NO agregues explicaciones, texto adicional, comentarios o caracteres fuera del JSON. SOLO el objeto JSON puro.'
                     },
                     {
                         role: 'user',
@@ -163,10 +163,27 @@ class AIScalpingAnalyzer {
                 timeout: 5000 // 5 segundos máximo
             });
 
-            const rawContent = response.data.choices[0].message.content;
+            const rawContent = response.data.choices[0].message.content.trim();
             this.logger.info(`🤖 Respuesta cruda de Groq: ${rawContent.substring(0, 200)}...`);
             
-            const aiResponse = JSON.parse(rawContent);
+            // Limpiar respuesta y extraer JSON
+            let cleanContent = rawContent;
+            
+            // Buscar el JSON entre llaves
+            const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                cleanContent = jsonMatch[0];
+            }
+            
+            // Limpiar caracteres problemáticos
+            cleanContent = cleanContent
+                .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Caracteres de control
+                .replace(/,\s*}/g, '}') // Comas finales
+                .replace(/,\s*]/g, ']'); // Comas finales en arrays
+            
+            this.logger.info(`🧹 JSON limpio: ${cleanContent.substring(0, 150)}...`);
+            
+            const aiResponse = JSON.parse(cleanContent);
             
             if (this.validateAIResponse(aiResponse)) {
                 this.logger.info(`🆓 Análisis Groq completado: ${aiResponse.action} - ${aiResponse.confidence}%`);
@@ -261,17 +278,15 @@ CRITERIOS PROFESIONALES:
 - Si confianza <80%, responder "ESPERAR"
 - Priorizar calidad sobre cantidad
 
-RESPONDE ÚNICAMENTE CON ESTE JSON (sin texto adicional):
+RESPONDE SOLO CON ESTE JSON:
 {
   "action": "LONG/SHORT/ESPERAR",
-  "confidence": 0-100,
-  "entry": precio_exacto,
-  "stopLoss": precio_exacto,
-  "takeProfit": precio_exacto,
-  "reason": "razón_en_una_línea"
+  "confidence": 85,
+  "entry": 1.2345,
+  "stopLoss": 1.2300,
+  "takeProfit": 1.2400,
+  "reason": "RSI oversold + tendencia alcista"
 }
-
-NO agregues explicaciones, análisis o texto fuera del JSON.
 `;
     }
 
