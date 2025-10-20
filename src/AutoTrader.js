@@ -8,16 +8,17 @@ class AutoTrader {
         this.logger = logger;
         this.baseURL = 'https://fapi.binance.com';
         
-        // CONFIGURACIÓN DE SEGURIDAD
+        // CONFIGURACIÓN INTELIGENTE ACTUALIZADA
         this.config = {
-            MIN_CONFIDENCE: 80,           // Mínimo 80% confianza
-            POSITION_SIZE_USD: 1,         // $1 USD por operación
-            LEVERAGE: 15,                 // Apalancamiento 15x
-            STOP_LOSS_USD: 0.50,          // -$0.50 USD stop loss
-            TAKE_PROFIT_USD: 1.00,        // +$1.00 USD take profit
-            MAX_DAILY_TRADES: 10,         // Máximo 10 operaciones por día
-            MAX_OPEN_POSITIONS: 3,        // Máximo 3 posiciones abiertas
-            TRADING_ENABLED: false        // DESHABILITADO por defecto (SEGURIDAD)
+            MIN_CONFIDENCE: 90,           // Mínimo 90% confianza IA (ultra-selectivo)
+            POSITION_SIZE_USD: 0.85,      // $0.85 USD por operación (inteligente)
+            LEVERAGE: 'DYNAMIC',          // Apalancamiento dinámico según activo
+            STOP_LOSS_DYNAMIC: true,      // SL según análisis IA
+            TAKE_PROFIT_DYNAMIC: true,    // TP según análisis IA
+            MAX_DAILY_TRADES: 5,          // Máximo 5 operaciones por día (conservador)
+            MAX_OPEN_POSITIONS: 2,        // Máximo 2 posiciones abiertas (seguro)
+            TRADING_ENABLED: false,       // Estado actual (se mantiene)
+            USE_INTELLIGENT_SIZING: true  // Usar sistema inteligente Binance API
         };
         
         this.dailyTrades = 0;
@@ -258,53 +259,109 @@ class AutoTrader {
         }
     }
 
-    // Procesar señal de trading
-    async processSignal(token, recommendation, confidence, analysis) {
+    // 🚀 EJECUTAR TRADE CON SISTEMA INTELIGENTE
+    async executeTrade(tradeConfig) {
         try {
-            // Verificar confianza mínima
-            if (confidence < this.config.MIN_CONFIDENCE) {
-                this.logger.info(`⚠️ Confianza insuficiente para ${token}: ${confidence}% < ${this.config.MIN_CONFIDENCE}%`);
-                return null;
-            }
-
-            // Verificar si ya tenemos posición abierta
-            if (this.openPositions.has(token)) {
-                this.logger.info(`⚠️ Ya existe posición abierta para ${token}`);
-                return null;
-            }
-
-            const symbol = token.replace('USDT', '') + 'USDT';
+            const { symbol, side, quantity, price, stopLoss, takeProfit, leverage, targetUSD } = tradeConfig;
             
-            // Determinar dirección
-            let side = null;
-            if (recommendation.includes('LONG') || recommendation.includes('COMPRAR')) {
-                side = 'BUY';
-            } else if (recommendation.includes('SHORT') || recommendation.includes('VENDER')) {
-                side = 'SELL';
-            } else {
-                this.logger.info(`⚠️ Señal no clara para ${token}: ${recommendation}`);
-                return null;
-            }
-
-            // Calcular cantidad
-            const quantity = await this.calculateMinQuantity(symbol);
-            if (!quantity) {
-                this.logger.error(`❌ No se pudo calcular cantidad para ${symbol}`);
-                return null;
-            }
-
-            // Ejecutar orden
-            const order = await this.executeMarketOrder(symbol, side, quantity, confidence);
+            this.logger.info(`🚀 EJECUTANDO TRADE INTELIGENTE: ${side} ${quantity} ${symbol}`);
+            this.logger.info(`💰 Valor: $${targetUSD} USD con ${leverage}x leverage`);
             
-            if (order) {
-                this.logger.info(`🎉 TRADE AUTOMÁTICO EJECUTADO: ${side} ${symbol} - Confianza: ${confidence}%`);
+            if (!this.checkSafetyLimits()) {
+                return null;
+            }
+
+            // 1. Configurar apalancamiento dinámico
+            await this.setDynamicLeverage(symbol, leverage);
+
+            // 2. Ejecutar orden de mercado
+            const orderParams = {
+                symbol,
+                side,
+                type: 'MARKET',
+                quantity: quantity.toString()
+            };
+
+            const order = await this.makeRequest('/fapi/v1/order', orderParams, 'POST');
+            
+            if (order.status === 'FILLED') {
+                this.dailyTrades++;
+                const entryPrice = parseFloat(order.avgPrice || order.price);
+                
+                this.openPositions.set(symbol, {
+                    orderId: order.orderId,
+                    side,
+                    quantity,
+                    entryPrice,
+                    stopLoss,
+                    takeProfit,
+                    leverage,
+                    targetUSD,
+                    timestamp: new Date()
+                });
+
+                this.logger.info(`✅ Orden ejecutada: ${order.orderId} - Entry: $${entryPrice}`);
+                
+                // 3. Configurar SL/TP dinámicos según IA
+                await this.setDynamicStopLossAndTakeProfit(symbol, side, entryPrice, stopLoss, takeProfit, quantity);
+                
                 return order;
             }
 
             return null;
         } catch (error) {
-            this.logger.error(`❌ Error procesando señal para ${token}:`, error.message);
+            this.logger.error(`❌ Error ejecutando trade inteligente:`, error.message);
             return null;
+        }
+    }
+
+    // 🎯 CONFIGURAR APALANCAMIENTO DINÁMICO
+    async setDynamicLeverage(symbol, leverage) {
+        try {
+            await this.makeRequest('/fapi/v1/leverage', {
+                symbol,
+                leverage: leverage
+            }, 'POST');
+            
+            this.logger.info(`⚡ Apalancamiento configurado: ${symbol} = ${leverage}x`);
+        } catch (error) {
+            this.logger.warn(`⚠️ Error configurando leverage ${leverage}x para ${symbol}:`, error.message);
+        }
+    }
+
+    // 🛡️ CONFIGURAR SL/TP DINÁMICOS SEGÚN IA
+    async setDynamicStopLossAndTakeProfit(symbol, side, entryPrice, stopLoss, takeProfit, quantity) {
+        try {
+            const isLong = side === 'BUY';
+            
+            // Stop Loss según análisis IA
+            if (stopLoss && stopLoss > 0) {
+                const slOrder = await this.makeRequest('/fapi/v1/order', {
+                    symbol,
+                    side: isLong ? 'SELL' : 'BUY',
+                    type: 'STOP_MARKET',
+                    quantity: quantity.toString(),
+                    stopPrice: stopLoss.toString()
+                }, 'POST');
+                
+                this.logger.info(`🛑 SL dinámico configurado: $${stopLoss}`);
+            }
+
+            // Take Profit según análisis IA
+            if (takeProfit && takeProfit > 0) {
+                const tpOrder = await this.makeRequest('/fapi/v1/order', {
+                    symbol,
+                    side: isLong ? 'SELL' : 'BUY',
+                    type: 'TAKE_PROFIT_MARKET',
+                    quantity: quantity.toString(),
+                    stopPrice: takeProfit.toString()
+                }, 'POST');
+                
+                this.logger.info(`🎯 TP dinámico configurado: $${takeProfit}`);
+            }
+
+        } catch (error) {
+            this.logger.error(`❌ Error configurando SL/TP dinámicos:`, error.message);
         }
     }
 
@@ -314,7 +371,7 @@ class AutoTrader {
         this.logger.info(`🔄 Trading automático ${enabled ? 'HABILITADO' : 'DESHABILITADO'}`);
     }
 
-    // Obtener estadísticas
+    // Obtener estadísticas actualizadas
     getStats() {
         return {
             tradingEnabled: this.config.TRADING_ENABLED,
@@ -322,8 +379,18 @@ class AutoTrader {
             maxDailyTrades: this.config.MAX_DAILY_TRADES,
             openPositions: this.openPositions.size,
             maxOpenPositions: this.config.MAX_OPEN_POSITIONS,
-            minConfidence: this.config.MIN_CONFIDENCE
+            minConfidence: this.config.MIN_CONFIDENCE,
+            positionSizeUSD: this.config.POSITION_SIZE_USD,
+            leverage: this.config.LEVERAGE,
+            useIntelligentSizing: this.config.USE_INTELLIGENT_SIZING,
+            stopLossDynamic: this.config.STOP_LOSS_DYNAMIC,
+            takeProfitDynamic: this.config.TAKE_PROFIT_DYNAMIC
         };
+    }
+
+    // Verificar si está habilitado
+    isEnabled() {
+        return this.config.TRADING_ENABLED;
     }
 }
 
