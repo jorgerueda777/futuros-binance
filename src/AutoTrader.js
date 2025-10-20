@@ -372,6 +372,8 @@ class AutoTrader {
                         type: 'STOP_MARKET',
                         quantity: quantity.toString(),
                         stopPrice: stopLoss.toString(),
+                        reduceOnly: 'true',  // ✅ CRÍTICO: Solo para cerrar posición
+                        timeInForce: 'GTC',  // ✅ Good Till Cancelled
                         timestamp: timestamp
                     };
                     
@@ -386,9 +388,12 @@ class AutoTrader {
                         }
                     });
                     
-                    this.logger.info(`🛑 SL dinámico configurado: $${stopLoss}`);
+                    const slOrder = slResponse.data;
+                    this.logger.info(`🛑 SL dinámico configurado: $${stopLoss} - OrderID: ${slOrder.orderId}`);
+                    this.logger.info(`📊 SL Status: ${slOrder.status} - Type: ${slOrder.type}`);
                 } catch (slError) {
-                    this.logger.warn(`⚠️ Error configurando SL: ${slError.message}`);
+                    this.logger.error(`❌ Error configurando SL: ${slError.message}`);
+                    this.logger.error(`📊 SL Error details:`, slError.response?.data || slError);
                 }
             }
 
@@ -402,6 +407,8 @@ class AutoTrader {
                         type: 'TAKE_PROFIT_MARKET',
                         quantity: quantity.toString(),
                         stopPrice: takeProfit.toString(),
+                        reduceOnly: 'true',  // ✅ CRÍTICO: Solo para cerrar posición
+                        timeInForce: 'GTC',  // ✅ Good Till Cancelled
                         timestamp: timestamp
                     };
                     
@@ -416,9 +423,12 @@ class AutoTrader {
                         }
                     });
                     
-                    this.logger.info(`🎯 TP dinámico configurado: $${takeProfit}`);
+                    const tpOrder = tpResponse.data;
+                    this.logger.info(`🎯 TP dinámico configurado: $${takeProfit} - OrderID: ${tpOrder.orderId}`);
+                    this.logger.info(`📊 TP Status: ${tpOrder.status} - Type: ${tpOrder.type}`);
                 } catch (tpError) {
-                    this.logger.warn(`⚠️ Error configurando TP: ${tpError.message}`);
+                    this.logger.error(`❌ Error configurando TP: ${tpError.message}`);
+                    this.logger.error(`📊 TP Error details:`, tpError.response?.data || tpError);
                 }
             }
 
