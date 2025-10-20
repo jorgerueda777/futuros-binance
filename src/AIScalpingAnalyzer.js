@@ -5,12 +5,10 @@ class AIScalpingAnalyzer {
     constructor(logger) {
         this.logger = logger;
         this.groqApiKey = process.env.GROQ_API_KEY;
-        this.openaiApiKey = process.env.OPENAI_API_KEY;
         
-        // Debug: Mostrar todas las variables de entorno relacionadas con IA
+        // Debug: Mostrar variables de entorno IA
         this.logger.info(`🔍 DEBUG - Variables de entorno IA:`);
-        this.logger.info(`- GROQ_API_KEY: ${this.groqApiKey ? 'CONFIGURADA' : 'NO CONFIGURADA'}`);
-        this.logger.info(`- OPENAI_API_KEY: ${this.openaiApiKey ? 'CONFIGURADA' : 'NO CONFIGURADA'}`);
+        this.logger.info(`- GROQ_API_KEY: ${this.groqApiKey ? 'CONFIGURADA ✅' : 'NO CONFIGURADA ❌'}`);
         this.logger.info(`- AI_SCALPING_ENABLED: ${process.env.AI_SCALPING_ENABLED}`);
         this.logger.info(`- AUTO_TRADING_ENABLED: ${process.env.AUTO_TRADING_ENABLED}`);
         this.baseURL = 'https://fapi.binance.com';
