@@ -401,12 +401,15 @@ class AutoTrader {
             if (stopLoss && stopLoss > 0) {
                 try {
                     const timestamp = Date.now();
+                    // Ajustar precisión del SL según el símbolo
+                    const adjustedStopLoss = parseFloat(stopLoss.toFixed(6)); // Máximo 6 decimales
+                    
                     const slParams = {
                         symbol: symbol,
                         side: isLong ? 'SELL' : 'BUY',
                         type: 'STOP_MARKET',
                         quantity: quantity.toString(),
-                        stopPrice: stopLoss.toString(),
+                        stopPrice: adjustedStopLoss.toString(),
                         reduceOnly: 'true',  // ✅ CRÍTICO: Solo para cerrar posición
                         timeInForce: 'GTC',  // ✅ Good Till Cancelled
                         timestamp: timestamp
@@ -436,12 +439,15 @@ class AutoTrader {
             if (takeProfit && takeProfit > 0) {
                 try {
                     const timestamp = Date.now();
+                    // Ajustar precisión del TP según el símbolo
+                    const adjustedTakeProfit = parseFloat(takeProfit.toFixed(6)); // Máximo 6 decimales
+                    
                     const tpParams = {
                         symbol: symbol,
                         side: isLong ? 'SELL' : 'BUY',
                         type: 'TAKE_PROFIT_MARKET',
                         quantity: quantity.toString(),
-                        stopPrice: takeProfit.toString(),
+                        stopPrice: adjustedTakeProfit.toString(),
                         reduceOnly: 'true',  // ✅ CRÍTICO: Solo para cerrar posición
                         timeInForce: 'GTC',  // ✅ Good Till Cancelled
                         timestamp: timestamp
