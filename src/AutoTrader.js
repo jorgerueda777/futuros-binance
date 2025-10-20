@@ -317,7 +317,9 @@ class AutoTrader {
                 this.logger.info(`✅ Orden ejecutada: ${order.orderId} - Entry: $${entryPrice}`);
                 
                 // 3. Configurar SL/TP dinámicos según IA
+                this.logger.info(`🛡️ CONFIGURANDO SL/TP: SL=$${stopLoss} TP=$${takeProfit}`);
                 await this.setDynamicStopLossAndTakeProfit(symbol, side, entryPrice, stopLoss, takeProfit, quantity);
+                this.logger.info(`✅ SL/TP configuración completada para ${symbol}`);
                 
                 return order;
             }
@@ -360,6 +362,9 @@ class AutoTrader {
     // 🛡️ CONFIGURAR SL/TP DINÁMICOS SEGÚN IA
     async setDynamicStopLossAndTakeProfit(symbol, side, entryPrice, stopLoss, takeProfit, quantity) {
         try {
+            this.logger.info(`🔧 INICIANDO configuración SL/TP para ${symbol}`);
+            this.logger.info(`📊 Parámetros: Side=${side}, Entry=$${entryPrice}, SL=$${stopLoss}, TP=$${takeProfit}, Qty=${quantity}`);
+            
             const isLong = side === 'BUY';
             
             // Stop Loss según análisis IA
