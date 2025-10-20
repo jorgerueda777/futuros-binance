@@ -181,15 +181,60 @@ class BinanceAPI {
 
     async getExchangeInfo() {
         try {
-            const response = await axios.get(`${this.baseURL}/api/v3/exchangeInfo`, {
-                timeout: 10000
-            });
-
+            const response = await axios.get(`${this.baseURL}/fapi/v1/exchangeInfo`);
             return response.data;
-
         } catch (error) {
-            console.error('Error obteniendo información del exchange:', error.message);
-            return null;
+            console.error('Error obteniendo exchange info:', error.message);
+            throw error;
+        }
+    }
+
+    async getLeverageBracket(symbol) {
+        try {
+            const timestamp = Date.now();
+            const queryString = `symbol=${symbol}&timestamp=${timestamp}`;
+            const signature = this.createSignature(queryString);
+            
+            const response = await axios.get(`${this.baseURL}/fapi/v1/leverageBracket`, {
+                params: {
+                    symbol: symbol,
+                    timestamp: timestamp,
+                    signature: signature
+                },
+                headers: {
+                    'X-MBX-APIKEY': this.apiKey
+                }
+            });
+            
+            return response.data;
+        } catch (error) {
+            console.error(`Error obteniendo leverage bracket para ${symbol}:`, error.message);
+            throw error;
+        }
+    }
+
+    async setLeverage(symbol, leverage) {
+        try {
+            const timestamp = Date.now();
+            const queryString = `symbol=${symbol}&leverage=${leverage}&timestamp=${timestamp}`;
+            const signature = this.createSignature(queryString);
+            
+            const response = await axios.post(`${this.baseURL}/fapi/v1/leverage`, {
+                symbol: symbol,
+                leverage: leverage,
+                timestamp: timestamp,
+                signature: signature
+            }, {
+                headers: {
+                    'X-MBX-APIKEY': this.apiKey,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            });
+            
+            return response.data;
+        } catch (error) {
+            console.error(`Error estableciendo leverage ${leverage}x para ${symbol}:`, error.message);
+            throw error;
         }
     }
 

@@ -498,11 +498,44 @@ class DefBinanceProfessionalBot {
                 if (aiAnalysis && aiAnalysis.confidence >= 80) {
                     this.logger.info(`🚀 IA confirma señal del canal: ${symbol} - ${aiAnalysis.confidence}%`);
                     
-                    // Solo enviar señal al F77 (SIN ejecutar trade)
+                    // Enviar señal al F77 siempre
                     await this.sendAISignalToF77(symbol, aiAnalysis);
-                    this.logger.info(`✅ Señal IA enviada al F77 (SIN ejecución automática)`);
+                    this.logger.info(`✅ Señal IA enviada al F77`);
                     
-                    return; // Salir aquí
+                    // EJECUCIÓN AUTOMÁTICA para señales IA ≥90% (balance $20)
+                    if (aiAnalysis.confidence >= 90 && this.autoTrader && this.autoTrader.isEnabled()) {
+                        this.logger.info(`🤖 EJECUTANDO AUTOMÁTICAMENTE: ${symbol} - ${aiAnalysis.confidence}%`);
+                        
+                        try {
+                            // 🚀 CÁLCULO INTELIGENTE DE POSICIÓN
+                            const positionInfo = await this.calculateIntelligentPosition(symbol, aiAnalysis.entry, 20);
+                            
+                            // Configuración inteligente con Binance API
+                            const tradeConfig = {
+                                symbol: symbol,
+                                side: aiAnalysis.action === 'LONG' ? 'BUY' : 'SELL',
+                                quantity: positionInfo.quantity,
+                                price: aiAnalysis.entry,
+                                stopLoss: aiAnalysis.stopLoss,
+                                takeProfit: aiAnalysis.takeProfit,
+                                leverage: positionInfo.leverage,
+                                targetUSD: positionInfo.targetUSD
+                            };
+                            
+                            this.logger.info(`🎯 EJECUTANDO: ${tradeConfig.side} ${positionInfo.quantity} ${symbol}`);
+                            this.logger.info(`💰 Valor: $${positionInfo.targetUSD} USD con ${positionInfo.leverage}x leverage`);
+                            
+                            await this.autoTrader.executeTrade(tradeConfig);
+                            this.logger.info(`✅ Trade IA ejecutado: ${symbol} ${aiAnalysis.action} - $${positionInfo.targetUSD}`);
+                            
+                        } catch (error) {
+                            this.logger.error(`❌ Error ejecutando trade IA automático:`, error.message);
+                        }
+                    } else if (aiAnalysis.confidence >= 90) {
+                        this.logger.info(`⚠️ Señal IA ≥90% pero trading automático deshabilitado`);
+                    }
+                    
+                    return;
                 } else if (aiAnalysis) {
                     this.logger.info(`⚠️ IA rechaza señal del canal: ${symbol} - ${aiAnalysis.confidence}%`);
                 }
@@ -1100,6 +1133,70 @@ ${directionEmoji} <b>${symbol}</b>
 
         } catch (error) {
             this.logger.error(`❌ Error enviando señal IA al F77:`, error.message);
+        }
+    }
+
+    // 💰 CALCULAR POSICIÓN INTELIGENTE CON BINANCE API
+    async calculateIntelligentPosition(symbol, price, balance = 20) {
+        try {
+            this.logger.info(`💰 Calculando posición para ${symbol} - Balance: $${balance}`);
+            
+            // 1. Obtener información del símbolo de Binance
+            const exchangeInfo = await this.binanceAPI.getExchangeInfo();
+            const symbolInfo = exchangeInfo.symbols.find(s => s.symbol === symbol);
+            
+            if (!symbolInfo) {
+                throw new Error(`Símbolo ${symbol} no encontrado`);
+            }
+            
+            // 2. Extraer límites del símbolo
+            const lotSizeFilter = symbolInfo.filters.find(f => f.filterType === 'LOT_SIZE');
+            const minQty = parseFloat(lotSizeFilter.minQty);
+            const stepSize = parseFloat(lotSizeFilter.stepSize);
+            
+            // 3. Obtener apalancamiento máximo
+            let maxLeverage = 20; // Por defecto
+            try {
+                const leverageInfo = await this.binanceAPI.getLeverageBracket(symbol);
+                maxLeverage = Math.min(leverageInfo[0].maxLeverage || 20, 50); // Máximo 50x
+            } catch (e) {
+                this.logger.warn(`⚠️ No se pudo obtener leverage para ${symbol}, usando 20x`);
+            }
+            
+            // 4. Calcular posición objetivo ($0.70 - $1.00 USD)
+            const targetUSD = 0.85; // $0.85 USD por trade
+            const leverage = maxLeverage;
+            
+            // 5. Calcular cantidad exacta
+            const notionalValue = targetUSD * leverage; // Valor nocional con apalancamiento
+            const quantity = notionalValue / price; // Cantidad en el activo base
+            
+            // 6. Ajustar a step size de Binance
+            const adjustedQuantity = Math.max(
+                minQty,
+                Math.floor(quantity / stepSize) * stepSize
+            );
+            
+            this.logger.info(`📊 ${symbol}: Precio $${price}, Leverage ${leverage}x`);
+            this.logger.info(`💰 Posición: $${targetUSD} USD = ${adjustedQuantity} ${symbol.replace('USDT', '')}`);
+            this.logger.info(`📏 Límites: Min ${minQty}, Step ${stepSize}`);
+            
+            return {
+                quantity: adjustedQuantity,
+                leverage: leverage,
+                notionalValue: adjustedQuantity * price,
+                targetUSD: targetUSD
+            };
+            
+        } catch (error) {
+            this.logger.error(`❌ Error calculando posición inteligente:`, error.message);
+            // Fallback seguro
+            return {
+                quantity: 0.001,
+                leverage: 20,
+                notionalValue: 0.001 * price,
+                targetUSD: 0.5
+            };
         }
     }
 
