@@ -11,7 +11,7 @@ class AutoTrader {
         // CONFIGURACIÓN INTELIGENTE ACTUALIZADA
         this.config = {
             MIN_CONFIDENCE: 80,           // Mínimo 80% confianza IA (selectivo)
-            POSITION_SIZE_USD: 0.85,      // $0.85 USD por operación (inteligente)
+            POSITION_SIZE_USD: 0.40,      // $0.40 USD por operación (inteligente)
             LEVERAGE: 'DYNAMIC',          // Apalancamiento dinámico según activo
             STOP_LOSS_DYNAMIC: true,      // SL según análisis IA
             TAKE_PROFIT_DYNAMIC: true,    // TP según análisis IA

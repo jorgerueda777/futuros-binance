@@ -538,8 +538,8 @@ class DefBinanceProfessionalBot {
                 this.logger.warn(`⚠️ No se pudo obtener leverage para ${symbol}, usando 20x`);
             }
             
-            // 4. Calcular posición objetivo ($0.85 USD)
-            const targetUSD = 0.85; // $0.85 USD por trade
+            // 4. Calcular posición objetivo ($0.40 USD)
+            const targetUSD = 0.40; // $0.40 USD por trade
             const leverage = maxLeverage;
             
             // 5. Calcular cantidad exacta
@@ -570,7 +570,7 @@ class DefBinanceProfessionalBot {
                 quantity: 0.001,
                 leverage: 20,
                 notionalValue: 0.001 * price,
-                targetUSD: 0.5
+                targetUSD: 0.40
             };
         }
     }
