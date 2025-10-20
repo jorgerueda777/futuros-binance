@@ -684,6 +684,7 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
                     
                     this.logger.info(`🎯 EJECUTANDO (SmartMoney): ${tradeConfig.side} ${positionInfo.quantity} ${symbol}`);
                     this.logger.info(`💰 Valor: $${positionInfo.targetUSD} USD con ${positionInfo.leverage}x leverage`);
+                    this.logger.info(`🛡️ SL/TP calculados: SL=$${tradeConfig.stopLoss} TP=$${tradeConfig.takeProfit}`);
                     
                     await this.autoTrader.executeTrade(tradeConfig);
                     this.logger.info(`✅ Trade SmartMoney ejecutado: ${symbol} ${tradeConfig.side} - $${positionInfo.targetUSD}`);
