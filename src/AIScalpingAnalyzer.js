@@ -146,7 +146,7 @@ class AIScalpingAnalyzer {
                 messages: [
                     {
                         role: 'system',
-                        content: 'Eres un experto en scalping de criptomonedas. DEBES responder ÚNICAMENTE en formato JSON válido. NO agregues texto adicional, explicaciones o análisis fuera del JSON. SOLO JSON.'
+                        content: 'Eres un TRADER PROFESIONAL especializado en análisis técnico de 5 minutos para trading manual. Analizas señales del mercado con datos institucionales (OI, Funding Rate) para dar recomendaciones precisas. DEBES responder ÚNICAMENTE en formato JSON válido. NO agregues texto adicional.'
                     },
                     {
                         role: 'user',
@@ -230,7 +230,7 @@ class AIScalpingAnalyzer {
         }
     }
 
-    // Crear prompt especializado para scalping
+    // Crear prompt profesional para trading 5min
     createScalpingPrompt(data) {
         return `
 ANÁLISIS TRADING MANUAL 5 MINUTOS - ${data.symbol}
@@ -250,13 +250,16 @@ DATOS ACTUALES:
 - Tendencia 15m: ${data.trend15m}
 - Spread: ${data.bidAskSpread}%
 
-CONTEXTO: Trading manual 5 minutos, señales estables para ejecución manual.
+CONTEXTO PROFESIONAL: 
+Análisis técnico profesional de 5 minutos con datos institucionales. Las señales deben ser estables y dar tiempo suficiente para ejecución manual. Considera el Open Interest y Funding Rate como indicadores clave del sentimiento institucional.
 
-REQUISITOS:
-- Solo responder si confianza ≥80%
-- Stop Loss máximo: -0.5%
-- Take Profit mínimo: +1.0%
+CRITERIOS PROFESIONALES:
+- Solo señales de ALTA CALIDAD (confianza ≥80%)
+- Risk/Reward mínimo 1:2 
+- Stop Loss máximo: -0.5% (conservador)
+- Take Profit mínimo: +1.0% (rentable)
 - Si confianza <80%, responder "ESPERAR"
+- Priorizar calidad sobre cantidad
 
 RESPONDE ÚNICAMENTE CON ESTE JSON (sin texto adicional):
 {
