@@ -438,6 +438,40 @@ NO agregues explicaciones, análisis o texto fuera del JSON.
         }
     }
 
+    // Open Interest - Posiciones abiertas
+    async getOpenInterest(symbol) {
+        try {
+            const response = await axios.get(`${this.baseURL}/fapi/v1/openInterest`, {
+                params: { symbol },
+                timeout: 5000
+            });
+            return {
+                openInterest: parseFloat(response.data.openInterest),
+                time: response.data.time
+            };
+        } catch (error) {
+            this.logger.error(`Error obteniendo OI:`, error.message);
+            return { openInterest: 0, time: 0 };
+        }
+    }
+
+    // Funding Rate - Sentimiento del mercado
+    async getFundingRate(symbol) {
+        try {
+            const response = await axios.get(`${this.baseURL}/fapi/v1/premiumIndex`, {
+                params: { symbol },
+                timeout: 5000
+            });
+            return {
+                fundingRate: parseFloat(response.data.lastFundingRate),
+                markPrice: parseFloat(response.data.markPrice)
+            };
+        } catch (error) {
+            this.logger.error(`Error obteniendo funding rate:`, error.message);
+            return { fundingRate: 0, markPrice: 0 };
+        }
+    }
+
     async get24hrTicker(symbol) {
         try {
             const response = await axios.get(`${this.baseURL}/fapi/v1/ticker/24hr`, {
