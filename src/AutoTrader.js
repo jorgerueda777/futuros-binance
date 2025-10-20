@@ -44,16 +44,17 @@ class AutoTrader {
             }).toString();
             
             const signature = this.generateSignature(queryString);
-            const url = `${this.baseURL}${endpoint}?${queryString}&signature=${signature}`;
             
             const config = {
                 method,
-                url,
+                url: `${this.baseURL}${endpoint}`,
                 headers: {
                     'X-MBX-APIKEY': this.apiKey
                 },
                 params: {
-                    leverage: 15
+                    ...params,
+                    timestamp,
+                    signature
                 }
             };
             
@@ -318,12 +319,26 @@ class AutoTrader {
     // 🎯 CONFIGURAR APALANCAMIENTO DINÁMICO
     async setDynamicLeverage(symbol, leverage) {
         try {
-            await this.makeRequest('/fapi/v1/leverage', {
-                symbol,
-                leverage: leverage
-            }, 'POST');
+            const timestamp = Date.now();
+            const params = {
+                symbol: symbol,
+                leverage: leverage,
+                timestamp: timestamp
+            };
+            
+            const queryString = new URLSearchParams(params).toString();
+            const signature = this.generateSignature(queryString);
+            
+            const response = await axios.post(`${this.baseURL}/fapi/v1/leverage`, 
+                queryString + `&signature=${signature}`, {
+                headers: {
+                    'X-MBX-APIKEY': this.apiKey,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            });
             
             this.logger.info(`⚡ Apalancamiento configurado: ${symbol} = ${leverage}x`);
+            return response.data;
         } catch (error) {
             this.logger.warn(`⚠️ Error configurando leverage ${leverage}x para ${symbol}:`, error.message);
         }

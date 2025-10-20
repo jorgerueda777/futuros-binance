@@ -1141,8 +1141,8 @@ ${directionEmoji} <b>${symbol}</b>
         try {
             this.logger.info(`💰 Calculando posición para ${symbol} - Balance: $${balance}`);
             
-            // 1. Obtener información del símbolo de Binance
-            const exchangeInfo = await this.binanceAPI.getExchangeInfo();
+            // 1. Obtener información del símbolo de Binance Futures
+            const exchangeInfo = await this.binanceAPI.getFuturesExchangeInfo();
             const symbolInfo = exchangeInfo.symbols.find(s => s.symbol === symbol);
             
             if (!symbolInfo) {
