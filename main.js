@@ -15,7 +15,7 @@ const SignalGenerator = require('./src/SignalGenerator');
 const SmartMoneyAnalyzer = require('./src/SmartMoneyAnalyzer');
 const Logger = require('./src/Logger');
 const AutoTrader = require('./src/AutoTrader');
-const ScalpingAI = require('./src/ScalpingAI');
+// const ScalpingAI = require('./src/ScalpingAI'); // ELIMINADO COMPLETAMENTE
 // IA VALIDADORA - Doble filtro SmartMoney + IA
 // IA ELIMINADA - Solo análisis técnico tradicional
 
@@ -52,15 +52,7 @@ class DefBinanceProfessionalBot {
             this.logger
         );
         
-        // 🚀 IA SCALPING AUTÓNOMA
-        this.scalpingAI = new ScalpingAI(
-            process.env.GROQ_API_KEY,
-            this.logger,
-            process.env.BINANCE_API_KEY,
-            process.env.BINANCE_SECRET_KEY,
-            this.autoTrader,
-            this.bot
-        );
+        // IA SCALPING ELIMINADA COMPLETAMENTE
         
         // Restaurar estado de trading si estaba habilitado
         if (process.env.AUTO_TRADING_ENABLED === 'true') {
@@ -717,43 +709,8 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
 
             this.logger.info(`✅ Respuesta ultra rápida enviada: ${decision.action} - ${decision.confidence}%`);
 
-            // 🤖 IA SCALPING PRINCIPAL - TIENE PRIORIDAD ABSOLUTA
-            let aiExecuted = false;
-            if (this.scalpingAI && this.scalpingAI.isEnabled()) {
-                this.logger.info(`🤖 IA SCALPING (PRINCIPAL) analizando señal: ${symbol}`);
-                
-                try {
-                    const aiDecision = await this.scalpingAI.analyzeChannelSignal(symbol, signalInfo.text || '', marketData);
-                    
-                    if (aiDecision && aiDecision.confidence >= 80) {
-                        this.logger.info(`🎯 IA PRINCIPAL APRUEBA: ${aiDecision.decision} - ${aiDecision.confidence}%`);
-                        this.logger.info(`📊 Validación: ${aiDecision.signal_validation} - ${aiDecision.technical_reason}`);
-                        
-                        // IA EJECUTA - SMARTMONEY QUEDA BLOQUEADO
-                        await this.scalpingAI.executeScalpTrade(symbol, aiDecision, marketData);
-                        aiExecuted = true;
-                        this.logger.info(`✅ IA PRINCIPAL EJECUTADA: ${symbol} ${aiDecision.decision}`);
-                        this.logger.info(`🚫 SmartMoney BLOQUEADO - IA ya tomó control`);
-                    } else {
-                        this.logger.info(`❌ IA PRINCIPAL FALLA: ${symbol} - Confianza: ${aiDecision?.confidence || 0}% < 80%`);
-                        this.logger.info(`🔄 ACTIVANDO SmartMoney como RESPALDO...`);
-                    }
-                } catch (error) {
-                    this.logger.error(`❌ Error en IA Principal para ${symbol}:`, error.message);
-                    this.logger.info(`🔄 IA FALLÓ - ACTIVANDO SmartMoney como RESPALDO...`);
-                }
-            }
-
-            // ⚡ SMARTMONEY RESPALDO - SOLO SI IA FALLA
+            // ⚡ SMARTMONEY PRINCIPAL - IA ELIMINADA COMPLETAMENTE
             if (decision.confidence >= 80 && this.autoTrader && this.autoTrader.isEnabled()) {
-                if (aiExecuted) {
-                    // IA YA EJECUTÓ - SMARTMONEY BLOQUEADO
-                    this.logger.info(`🚫 SmartMoney BLOQUEADO: IA Principal ya tomó control de ${symbol}`);
-                    return; // NO EJECUTAR SMARTMONEY
-                } else {
-                    // IA FALLÓ - SMARTMONEY COMO RESPALDO
-                    this.logger.info(`🆘 SmartMoney RESPALDO: IA falló, SmartMoney toma control de ${symbol}`);
-                }
                 
                 this.logger.info(`⚡ EJECUTANDO SmartMoney (RESPALDO): ${symbol} - ${decision.confidence}%`);
                 
@@ -1166,13 +1123,7 @@ Apalancamiento máximo 10 X
         this.logger.info('🚀 Bot DefBinance Professional iniciado correctamente');
         this.logger.info('📊 Escuchando canales fuente...');
         this.logger.info('⚡ Sistema SmartMoney activo (80%+)');
-        this.logger.info('🚀 IA Scalping autónoma activa');
-        
-        // Iniciar IA Scalping autónoma
-        if (this.scalpingAI) {
-            this.scalpingAI.start();
-            this.logger.info('🚀 IA SCALPING AUTÓNOMA INICIADA');
-        }
+        this.logger.info('⚡ Solo SmartMoney activo (IA eliminada)');
         
         // Limpiar señales procesadas cada hora
         setInterval(() => {
@@ -1556,119 +1507,9 @@ ${directionEmoji} <b>${symbol}</b>
         }
     }
 
-    // 🚀 MÉTODOS PARA IA SCALPING
-    async handleScalpingEnable(chatId) {
-        try {
-            if (!this.scalpingAI) {
-                await this.bot.sendMessage(chatId, '❌ IA Scalping no está disponible');
-                return;
-            }
+    // MÉTODOS DE IA SCALPING ELIMINADOS COMPLETAMENTE
 
-            this.scalpingAI.enable();
-            if (!this.scalpingAI.isRunning) {
-                this.scalpingAI.start();
-            }
-            
-            const message = `
-🚀 <b>IA SCALPING HABILITADA</b>
-
-⚡ <b>SISTEMA PRINCIPAL ACTIVADO:</b>
-👂 Escucha mismo canal que SmartMoney
-🧠 Análisis IA de cada señal
-📤 Envía análisis al canal F77
-🎯 Prioridad sobre SmartMoney
-
-⚙️ <b>CONFIGURACIÓN SCALPING:</b>
-💰 Capital por trade: $0.50 USD
-⚡ Leverage: 20x
-🛡️ Stop Loss: 0.8%
-🎯 Take Profit: 1.6%
-⚖️ Risk/Reward: 1:2
-📈 Máx trades/hora: 50
-
-📊 <b>SÍMBOLOS MONITOREADOS:</b>
-BTC, ETH, BNB, SOL, ADA, XRP, DOGE
-
-✅ <b>IA Scalping operando en tiempo real</b>
-            `.trim();
-
-            await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
-        } catch (error) {
-            this.logger.error('Error habilitando IA Scalping:', error);
-            await this.bot.sendMessage(chatId, '❌ Error habilitando IA Scalping');
-        }
-    }
-
-    async handleScalpingDisable(chatId) {
-        try {
-            if (!this.scalpingAI) {
-                await this.bot.sendMessage(chatId, '❌ IA Scalping no está disponible');
-                return;
-            }
-
-            this.scalpingAI.disable();
-            this.scalpingAI.stop();
-            
-            const message = `
-🛑 <b>IA SCALPING DESHABILITADA</b>
-
-📊 <b>ESTADO ACTUAL:</b>
-❌ IA Scalping: DESACTIVADA
-✅ SmartMoney: ACTIVO (80%+)
-✅ IA Validadora: DISPONIBLE
-
-⚠️ <b>Solo operará con señales SmartMoney de alta calidad (80%+)</b>
-            `.trim();
-
-            await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
-        } catch (error) {
-            this.logger.error('Error deshabilitando IA Scalping:', error);
-            await this.bot.sendMessage(chatId, '❌ Error deshabilitando IA Scalping');
-        }
-    }
-
-    async handleScalpingStats(chatId) {
-        try {
-            if (!this.scalpingAI) {
-                await this.bot.sendMessage(chatId, '❌ IA Scalping no está disponible');
-                return;
-            }
-
-            const stats = this.scalpingAI.getStats();
-            
-            const message = `
-📊 <b>ESTADÍSTICAS IA SCALPING</b>
-
-🔍 <b>ESTADO:</b> ${stats.enabled ? '✅ HABILITADA' : '❌ DESHABILITADA'}
-🏃 <b>EJECUTÁNDOSE:</b> ${stats.isRunning ? '✅ SÍ' : '❌ NO'}
-
-📈 <b>TRADES ESTA HORA:</b> ${stats.analysisCount}/${stats.maxTradesPerHour}
-🎯 <b>CONFIANZA MÍNIMA:</b> ${stats.minConfidence}%
-
-💰 <b>CONFIGURACIÓN:</b>
-💵 Capital: $${stats.positionSize} USD
-⚡ Leverage: ${stats.leverage}x
-🛡️ Stop Loss: ${stats.slPercent}%
-🎯 Take Profit: ${stats.tpPercent}%
-
-📊 <b>ANÁLISIS:</b>
-⏰ Timeframes: ${stats.timeframes.join(', ')}
-🎯 Símbolos: ${stats.symbols.length} activos
-🔄 Frecuencia: 1 minuto
-
-🧠 <b>CAPACIDADES:</b>
-✅ Detección A FAVOR de tendencia
-✅ Detección CONTRA tendencia
-✅ Análisis técnico multi-timeframe
-✅ Ejecución autónoma
-            `.trim();
-
-            await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
-        } catch (error) {
-            this.logger.error('Error obteniendo stats IA Scalping:', error);
-            await this.bot.sendMessage(chatId, '❌ Error obteniendo estadísticas');
-        }
-    }
+    // TODOS LOS MÉTODOS DE IA SCALPING ELIMINADOS
 }
 
 // Servidor web simple para Render
