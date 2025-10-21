@@ -720,28 +720,33 @@ Responde SOLO en formato JSON:
             const confidenceEmoji = aiDecision.confidence >= 90 ? '🔥🔥🔥' :
                                    aiDecision.confidence >= 85 ? '🔥🔥' : '🔥';
 
+            // Limpiar texto de caracteres problemáticos
+            const cleanReasoning = (aiDecision.reasoning || '').replace(/[<>]/g, '').substring(0, 150);
+            const cleanTechnical = (aiDecision.technical_reason || '').replace(/[<>]/g, '').substring(0, 150);
+            const cleanOriginal = (originalSignal || '').replace(/[<>]/g, '').substring(0, 80);
+
             const message = `
-🤖 <b>IA SCALPING ANÁLISIS</b>
+🤖 IA SCALPING ANÁLISIS
 
-${directionEmoji} <b>${symbol}</b> ${aiDecision.decision} ${confidenceEmoji}
-📊 <b>Confianza IA:</b> ${aiDecision.confidence}%
-${validationEmoji} <b>Validación:</b> ${aiDecision.signal_validation}
+${directionEmoji} ${symbol} ${aiDecision.decision} ${confidenceEmoji}
+📊 Confianza IA: ${aiDecision.confidence}%
+${validationEmoji} Validación: ${aiDecision.signal_validation}
 
-🧠 <b>ANÁLISIS IA:</b>
-${aiDecision.reasoning}
+🧠 ANÁLISIS IA:
+${cleanReasoning}
 
-🔍 <b>RAZÓN TÉCNICA:</b>
-${aiDecision.technical_reason}
+🔍 RAZÓN TÉCNICA:
+${cleanTechnical}
 
-📡 <b>SEÑAL ORIGINAL:</b>
-"${originalSignal.substring(0, 100)}..."
+📡 SEÑAL ORIGINAL:
+${cleanOriginal}
 
-⚙️ <b>CONFIGURACIÓN SCALPING:</b>
-💰 Capital: $0.50 USD
-⚡ Leverage: 20x
-🛡️ SL: 0.8% | TP: 1.6%
+⚙️ CONFIGURACIÓN SCALPING:
+💰 Capital: $1.00 USD
+⚡ Leverage: 15x
+🛡️ SL: $0.18 | TP: $0.44
 
-🤖 <i>Análisis generado por IA Scalping</i>
+🤖 Análisis generado por IA Scalping
             `.trim();
 
             await this.telegramBot.sendMessage(chatId, message, {
