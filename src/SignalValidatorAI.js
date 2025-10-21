@@ -6,11 +6,13 @@ class SignalValidatorAI {
         this.logger = logger;
         this.baseURL = 'https://api.groq.com/openai/v1';
         
-        // CONFIGURACIÓN PARA VALIDACIÓN DE SEÑALES
+        // CONFIGURACIÓN PARA VALIDACIÓN DE SEÑALES (RESPETANDO LÍMITES GROQ)
         this.config = {
             MIN_CONFIDENCE: 70,           // Mínimo 70% para validar señal
             ENABLED: true,                // Habilitado por defecto
-            MAX_VALIDATIONS_PER_HOUR: 50  // Máximo 50 validaciones por hora
+            MAX_VALIDATIONS_PER_HOUR: 20, // Reducido para respetar rate limits
+            RETRY_DELAY: 2000,            // 2 segundos entre reintentos
+            MAX_RETRIES: 2                // Máximo 2 reintentos
         };
         
         this.validationCount = 0;
@@ -107,8 +109,9 @@ CONTEXTO ADICIONAL:
 
 Analiza esta señal SmartMoney y decide si es una oportunidad válida de trading.`;
 
-            const response = await axios.post(`${this.baseURL}/chat/completions`, {
-                model: 'llama-3.1-70b-versatile',
+            // Llamada con manejo de rate limits y reintentos
+            const response = await this.makeGroqRequest({
+                model: 'llama-3.1-8b-instant',  // Modelo de producción más estable
                 messages: [
                     {
                         role: 'system',
@@ -119,13 +122,8 @@ Analiza esta señal SmartMoney y decide si es una oportunidad válida de trading
                         content: prompt
                     }
                 ],
-                temperature: 0.2,  // Más conservador
-                max_tokens: 800
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Content-Type': 'application/json'
-                }
+                temperature: 0.1,  // Más determinístico
+                max_tokens: 500    // Reducido para evitar límites
             });
 
             const aiResponse = response.data.choices[0].message.content;
@@ -167,6 +165,45 @@ Analiza esta señal SmartMoney y decide si es una oportunidad válida de trading
                 confidence: 0,
                 reasoning: `Error: ${error.message}`
             };
+        }
+    }
+
+    // 🔄 MÉTODO ROBUSTO PARA LLAMADAS A GROQ CON RATE LIMIT HANDLING
+    async makeGroqRequest(requestData, retryCount = 0) {
+        try {
+            const response = await axios.post(`${this.baseURL}/chat/completions`, requestData, {
+                headers: {
+                    'Authorization': `Bearer ${this.apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000  // 10 segundos timeout
+            });
+
+            return response;
+
+        } catch (error) {
+            // Manejo específico de rate limits (429)
+            if (error.response?.status === 429) {
+                const retryAfter = error.response.headers['retry-after'] || this.config.RETRY_DELAY / 1000;
+                this.logger.warn(`⏳ Rate limit alcanzado, esperando ${retryAfter} segundos...`);
+                
+                if (retryCount < this.config.MAX_RETRIES) {
+                    await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+                    return this.makeGroqRequest(requestData, retryCount + 1);
+                } else {
+                    throw new Error(`Rate limit excedido después de ${this.config.MAX_RETRIES} reintentos`);
+                }
+            }
+
+            // Manejo de otros errores 400
+            if (error.response?.status === 400) {
+                this.logger.error(`❌ Error 400 en Groq API: ${error.response.data?.error?.message || 'Error desconocido'}`);
+                throw new Error(`API Error 400: ${error.response.data?.error?.message || 'Solicitud inválida'}`);
+            }
+
+            // Otros errores
+            this.logger.error(`❌ Error en Groq API: ${error.message}`);
+            throw error;
         }
     }
 
