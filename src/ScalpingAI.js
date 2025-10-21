@@ -522,8 +522,12 @@ Responde SOLO en formato JSON:
             const quantity = this.applyQuantityFilters(rawQuantity, symbolInfo);
             
             // Calcular SL/TP basado en USD fijos
-            const slDistance = this.config.SCALP_SL_USD / quantity; // Distancia en precio para perder $0.15
-            const tpDistance = this.config.SCALP_TP_USD / quantity; // Distancia en precio para ganar $0.37
+            const slDistance = this.config.SCALP_SL_USD / quantity; // Distancia en precio para perder $0.18
+            const tpDistance = this.config.SCALP_TP_USD / quantity; // Distancia en precio para ganar $0.44
+            
+            this.logger.info(`🔍 DEBUG SL/TP: Quantity=${quantity}, SL_USD=${this.config.SCALP_SL_USD}, TP_USD=${this.config.SCALP_TP_USD}`);
+            this.logger.info(`🔍 DEBUG Distancias: slDistance=${slDistance}, tpDistance=${tpDistance}`);
+            this.logger.info(`🔍 DEBUG Entry: ${entryPrice}, isLong: ${isLong}`);
             
             const stopLoss = isLong ? 
                 entryPrice - slDistance : 
@@ -532,6 +536,8 @@ Responde SOLO en formato JSON:
             const takeProfit = isLong ? 
                 entryPrice + tpDistance : 
                 entryPrice - tpDistance;
+                
+            this.logger.info(`🔍 DEBUG Calculado: SL=${stopLoss}, TP=${takeProfit}`);
             
             // Configurar trade
             const tradeConfig = {
