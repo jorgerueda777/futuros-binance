@@ -25,7 +25,7 @@ class ScalpingAI {
             // PARÁMETROS SCALPING (VALORES FIJOS)
             SCALP_SL_USD: 0.15,              // $0.15 pérdida máxima
             SCALP_TP_USD: 0.37,              // $0.37 ganancia objetivo
-            POSITION_SIZE_USD: 0.85,         // $0.85 por scalp
+            POSITION_SIZE_USD: 1.00,         // $1.00 por scalp
             LEVERAGE: 15,                    // 15x para scalping (REVERTIDO)
             
             // TIMEFRAMES PARA ANÁLISIS
@@ -407,7 +407,7 @@ EMA21 1min: ${technicalData['1m']?.ema21?.toFixed(6) || 'N/A'}
 RSI 5min: ${technicalData['5m']?.rsi?.toFixed(2) || 'N/A'}
 
 CONTEXTO SCALPING:
-- Operación rápida: $0.85 USD con 15x leverage
+- Operación rápida: $1.00 USD con 15x leverage
 - Riesgo controlado: -$0.15 máximo | +$0.37 objetivo
 - Solo necesitas 60%+ confianza para ejecutar
 
