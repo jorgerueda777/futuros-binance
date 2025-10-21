@@ -595,9 +595,9 @@ class DefBinanceProfessionalBot {
         }
     }
 
-    // 🛑 CALCULAR STOP LOSS DINÁMICO (MÁS CONSERVADOR)
+    // 🛑 CALCULAR STOP LOSS DINÁMICO (CONFIGURACIÓN ANTERIOR ÓPTIMA)
     calculateStopLoss(price, action) {
-        const percentage = 0.008; // 0.8% stop loss (más espacio)
+        const percentage = 0.015; // 1.5% stop loss (pérdida ~$0.125)
         if (action.includes('LONG')) {
             return price * (1 - percentage);
         } else {
@@ -605,9 +605,9 @@ class DefBinanceProfessionalBot {
         }
     }
 
-    // 🎯 CALCULAR TAKE PROFIT DINÁMICO (MEJOR R:R)
+    // 🎯 CALCULAR TAKE PROFIT DINÁMICO (CONFIGURACIÓN ANTERIOR ÓPTIMA)
     calculateTakeProfit(price, action) {
-        const percentage = 0.020; // 2.0% take profit (R:R 1:2.5)
+        const percentage = 0.0375; // 3.75% take profit (R:R 1:2.5)
         if (action.includes('LONG')) {
             return price * (1 + percentage);
         } else {
