@@ -23,8 +23,8 @@ class ScalpingAI {
             SYMBOLS: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 'DOGEUSDT'],
             
             // PARÁMETROS SCALPING (VALORES FIJOS)
-            SCALP_SL_USD: 0.15,              // $0.15 pérdida máxima
-            SCALP_TP_USD: 0.37,              // $0.37 ganancia objetivo
+            SCALP_SL_USD: 0.18,              // $0.18 pérdida máxima (18%)
+            SCALP_TP_USD: 0.44,              // $0.44 ganancia objetivo (44%)
             POSITION_SIZE_USD: 1.00,         // $1.00 por scalp
             LEVERAGE: 15,                    // 15x para scalping (REVERTIDO)
             
@@ -408,7 +408,7 @@ RSI 5min: ${technicalData['5m']?.rsi?.toFixed(2) || 'N/A'}
 
 CONTEXTO SCALPING:
 - Operación rápida: $1.00 USD con 15x leverage
-- Riesgo controlado: -$0.15 máximo | +$0.37 objetivo
+- Riesgo controlado: -$0.18 máximo | +$0.44 objetivo
 - Solo necesitas 60%+ confianza para ejecutar
 
 INSTRUCCIONES AGRESIVAS:
