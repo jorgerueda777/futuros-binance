@@ -393,25 +393,31 @@ class ScalpingAI {
         // Limpiar signalText de caracteres problemáticos
         const cleanSignal = signalText.replace(/[^\w\s\-\.\$\%\#\@]/g, ' ').substring(0, 200);
         
-        return `Analiza esta señal de trading:
+        return `ERES UN TRADER PROFESIONAL AGRESIVO. Analiza esta señal:
 
 SÍMBOLO: ${symbol}
-SEÑAL: "${cleanSignal}"
-PRECIO: $${marketData.price}
+SEÑAL DEL CANAL: "${cleanSignal}"
+PRECIO ACTUAL: $${marketData.price}
 CAMBIO 24H: ${marketData.priceChange24h || 0}%
 
-TÉCNICO 1MIN:
-RSI: ${technicalData['1m']?.rsi?.toFixed(2) || 'N/A'}
-EMA9: ${technicalData['1m']?.ema9?.toFixed(6) || 'N/A'}
-EMA21: ${technicalData['1m']?.ema21?.toFixed(6) || 'N/A'}
+ANÁLISIS TÉCNICO:
+RSI 1min: ${technicalData['1m']?.rsi?.toFixed(2) || 'N/A'}
+EMA9 1min: ${technicalData['1m']?.ema9?.toFixed(6) || 'N/A'}
+EMA21 1min: ${technicalData['1m']?.ema21?.toFixed(6) || 'N/A'}
+RSI 5min: ${technicalData['5m']?.rsi?.toFixed(2) || 'N/A'}
 
-TÉCNICO 5MIN:
-RSI: ${technicalData['5m']?.rsi?.toFixed(2) || 'N/A'}
+CONTEXTO SCALPING:
+- Operación rápida: $0.85 USD con 20x leverage
+- Riesgo controlado: -$0.15 máximo | +$0.37 objetivo
+- Solo necesitas 60%+ confianza para ejecutar
 
-INSTRUCCIONES:
-- Analiza si la señal es válida técnicamente
-- Mínimo 80% confianza para aprobar
-- Puedes CONFIRMAR, RECHAZAR o CONTRADECIR la señal
+INSTRUCCIONES AGRESIVAS:
+✅ SÉ AGRESIVO: Las señales del canal son PRE-FILTRADAS
+✅ CONFÍA EN LA SEÑAL: Si el canal dice LONG/SHORT, hay razón
+✅ RSI 30-70 es PERFECTO para scalping (no sobrecomprado/vendido)
+✅ Si EMA9 > precio = tendencia alcista, EMA9 < precio = bajista
+✅ Cambio 24h positivo + LONG = muy buena señal
+✅ Cambio 24h negativo + SHORT = muy buena señal
 
 Responde SOLO en JSON:
 {
