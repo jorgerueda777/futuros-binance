@@ -14,7 +14,7 @@ const SignalGenerator = require('./src/SignalGenerator');
 const SmartMoneyAnalyzer = require('./src/SmartMoneyAnalyzer');
 const Logger = require('./src/Logger');
 const AutoTrader = require('./src/AutoTrader');
-const SignalValidatorAI = require('./src/SignalValidatorAI');
+const ScalpingAI = require('./src/ScalpingAI');
 // IA VALIDADORA - Doble filtro SmartMoney + IA
 // IA ELIMINADA - Solo análisis técnico tradicional
 
@@ -51,12 +51,14 @@ class DefBinanceProfessionalBot {
             this.logger
         );
         
-        // 🔍 IA VALIDADORA DE SEÑALES (DOBLE FILTRO)
-        this.signalValidator = new SignalValidatorAI(
+        // 🚀 IA SCALPING AUTÓNOMA
+        this.scalpingAI = new ScalpingAI(
             process.env.GROQ_API_KEY,
             this.logger,
             process.env.BINANCE_API_KEY,
-            process.env.BINANCE_SECRET_KEY
+            process.env.BINANCE_SECRET_KEY,
+            this.autoTrader,
+            this.bot
         );
         
         // Restaurar estado de trading si estaba habilitado
@@ -266,22 +268,23 @@ class DefBinanceProfessionalBot {
             await this.handleTradingStats(msg.chat.id);
         });
 
-        // 🔍 COMANDOS DE IA VALIDADORA
-        this.bot.onText(/\/ai_enable/, async (msg) => {
-            await this.handleAIValidatorEnable(msg.chat.id);
-        });
-
-        this.bot.onText(/\/ai_disable/, async (msg) => {
-            await this.handleAIValidatorDisable(msg.chat.id);
-        });
-
-        this.bot.onText(/\/ai_stats/, async (msg) => {
-            await this.handleAIValidatorStats(msg.chat.id);
-        });
 
         // 🛡️ COMANDO PARA VERIFICAR Y CORREGIR SL/TP
         this.bot.onText(/\/fix_sltp/, async (msg) => {
             await this.handleFixSLTP(msg.chat.id);
+        });
+
+        // 🚀 COMANDOS DE IA SCALPING
+        this.bot.onText(/\/scalping_enable/, async (msg) => {
+            await this.handleScalpingEnable(msg.chat.id);
+        });
+
+        this.bot.onText(/\/scalping_disable/, async (msg) => {
+            await this.handleScalpingDisable(msg.chat.id);
+        });
+
+        this.bot.onText(/\/scalping_stats/, async (msg) => {
+            await this.handleScalpingStats(msg.chat.id);
         });
 
         // Manejo de errores
@@ -622,9 +625,9 @@ class DefBinanceProfessionalBot {
 
     async sendUltraFastResponse(decision, symbol, signalInfo, marketData) {
         try {
-            // SOLO ENVIAR SI CONFIANZA ≥65%
-            if (decision.confidence < 65) {
-                this.logger.info(`⚠️ Confianza ${decision.confidence}% < 65% - NO enviando al F77`);
+            // SOLO ENVIAR SI CONFIANZA ≥80%
+            if (decision.confidence < 80) {
+                this.logger.info(`⚠️ Confianza ${decision.confidence}% < 80% - NO enviando al F77`);
                 return;
             }
 
@@ -687,72 +690,45 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
 
             this.logger.info(`✅ Respuesta ultra rápida enviada: ${decision.action} - ${decision.confidence}%`);
 
-            // 🔍 VALIDACIÓN IA DE SEÑAL SMARTMONEY (DOBLE FILTRO)
-            if (decision.confidence >= 65 && this.autoTrader && this.autoTrader.isEnabled() && this.signalValidator.isEnabled()) {
-                this.logger.info(`🔍 VALIDANDO señal SmartMoney con IA: ${symbol} - ${decision.confidence}%`);
+            // 🤖 IA SCALPING PRINCIPAL - TIENE PRIORIDAD ABSOLUTA
+            let aiExecuted = false;
+            if (this.scalpingAI && this.scalpingAI.isEnabled()) {
+                this.logger.info(`🤖 IA SCALPING (PRINCIPAL) analizando señal: ${symbol}`);
                 
                 try {
-                    // Preparar datos para validación IA
-                    const signalData = {
-                        symbol: symbol,
-                        action: decision.action,
-                        confidence: decision.confidence,
-                        price: marketData.price,
-                        volume: marketData.volume,
-                        priceChange: marketData.priceChangePercent,
-                        technicalData: signalInfo || {}
-                    };
+                    const aiDecision = await this.scalpingAI.analyzeChannelSignal(symbol, signalInfo.text || '', marketData);
                     
-                    // IA valida la señal SmartMoney
-                    const validation = await this.signalValidator.validateSignal(signalData);
-                    
-                    if (validation.decision === 'NO_TRADE') {
-                        this.logger.info(`❌ IA RECHAZA señal: ${validation.reasoning}`);
-                        return;
+                    if (aiDecision && aiDecision.confidence >= 80) {
+                        this.logger.info(`🎯 IA PRINCIPAL APRUEBA: ${aiDecision.decision} - ${aiDecision.confidence}%`);
+                        this.logger.info(`📊 Validación: ${aiDecision.signal_validation} - ${aiDecision.technical_reason}`);
+                        
+                        // IA EJECUTA - SMARTMONEY QUEDA BLOQUEADO
+                        await this.scalpingAI.executeScalpTrade(symbol, aiDecision, marketData);
+                        aiExecuted = true;
+                        this.logger.info(`✅ IA PRINCIPAL EJECUTADA: ${symbol} ${aiDecision.decision}`);
+                        this.logger.info(`🚫 SmartMoney BLOQUEADO - IA ya tomó control`);
+                    } else {
+                        this.logger.info(`❌ IA PRINCIPAL FALLA: ${symbol} - Confianza: ${aiDecision?.confidence || 0}% < 80%`);
+                        this.logger.info(`🔄 ACTIVANDO SmartMoney como RESPALDO...`);
                     }
-                    
-                    // Convertir validación IA a acción de trading
-                    const finalDecision = this.signalValidator.convertToTradeAction(validation, decision);
-                    if (!finalDecision) {
-                        this.logger.info(`❌ No se pudo convertir validación IA a acción de trading`);
-                        return;
-                    }
-                    
-                    this.logger.info(`✅ IA VALIDA señal: ${finalDecision.action} - Confianza final: ${finalDecision.confidence}%`);
-                    this.logger.info(`🧠 Razonamiento IA: ${validation.reasoning}`);
-                    this.logger.info(`🤖 EJECUTANDO AUTOMÁTICAMENTE (SmartMoney + IA): ${symbol} - ${finalDecision.confidence}%`);
-                
-                    // 📢 ENVIAR NOTIFICACIÓN DE COINCIDENCIA AL TELEGRAM
-                    await this.sendTradeExecutionMessage(symbol, finalDecision, validation, marketData);
-                
-                    // 🚀 CÁLCULO INTELIGENTE DE POSICIÓN
-                    const positionInfo = await this.calculateIntelligentPosition(symbol, marketData.price, 15);
-                    
-                    // Configuración inteligente con Binance API
-                    const tradeConfig = {
-                        symbol: symbol,
-                        side: finalDecision.action.includes('LONG') ? 'BUY' : 'SELL',
-                        quantity: positionInfo.quantity,
-                        price: marketData.price,
-                        stopLoss: this.calculateStopLoss(marketData.price, finalDecision.action),
-                        takeProfit: this.calculateTakeProfit(marketData.price, finalDecision.action),
-                        leverage: positionInfo.leverage,
-                        targetUSD: positionInfo.targetUSD
-                    };
-                    
-                    this.logger.info(`🎯 EJECUTANDO (SmartMoney): ${tradeConfig.side} ${positionInfo.quantity} ${symbol}`);
-                    this.logger.info(`💰 Valor: $${positionInfo.targetUSD} USD con ${positionInfo.leverage}x leverage`);
-                    this.logger.info(`🛡️ SL/TP calculados: SL=$${tradeConfig.stopLoss} TP=$${tradeConfig.takeProfit}`);
-                    
-                    await this.autoTrader.executeTrade(tradeConfig);
-                    this.logger.info(`✅ Trade SmartMoney ejecutado: ${symbol} ${tradeConfig.side} - $${positionInfo.targetUSD}`);
-                    
                 } catch (error) {
-                    this.logger.error(`❌ Error ejecutando trade SmartMoney + IA:`, error.message);
+                    this.logger.error(`❌ Error en IA Principal para ${symbol}:`, error.message);
+                    this.logger.info(`🔄 IA FALLÓ - ACTIVANDO SmartMoney como RESPALDO...`);
                 }
-            } else if (decision.confidence >= 65 && this.autoTrader && this.autoTrader.isEnabled() && !this.signalValidator.isEnabled()) {
-                // FALLBACK: Solo SmartMoney sin IA validadora
-                this.logger.info(`🤖 EJECUTANDO AUTOMÁTICAMENTE (Solo SmartMoney): ${symbol} - ${decision.confidence}%`);
+            }
+
+            // ⚡ SMARTMONEY RESPALDO - SOLO SI IA FALLA
+            if (decision.confidence >= 80 && this.autoTrader && this.autoTrader.isEnabled()) {
+                if (aiExecuted) {
+                    // IA YA EJECUTÓ - SMARTMONEY BLOQUEADO
+                    this.logger.info(`🚫 SmartMoney BLOQUEADO: IA Principal ya tomó control de ${symbol}`);
+                    return; // NO EJECUTAR SMARTMONEY
+                } else {
+                    // IA FALLÓ - SMARTMONEY COMO RESPALDO
+                    this.logger.info(`🆘 SmartMoney RESPALDO: IA falló, SmartMoney toma control de ${symbol}`);
+                }
+                
+                this.logger.info(`⚡ EJECUTANDO SmartMoney (RESPALDO): ${symbol} - ${decision.confidence}%`);
                 
                 try {
                     const positionInfo = await this.calculateIntelligentPosition(symbol, marketData.price, 15);
@@ -1161,6 +1137,15 @@ Apalancamiento máximo 10 X
     start() {
         this.isRunning = true;
         this.logger.info('🚀 Bot DefBinance Professional iniciado correctamente');
+        this.logger.info('📊 Escuchando canales fuente...');
+        this.logger.info('⚡ Sistema SmartMoney activo (80%+)');
+        this.logger.info('🚀 IA Scalping autónoma activa');
+        
+        // Iniciar IA Scalping autónoma
+        if (this.scalpingAI) {
+            this.scalpingAI.start();
+            this.logger.info('🚀 IA SCALPING AUTÓNOMA INICIADA');
+        }
         
         // Limpiar señales procesadas cada hora
         setInterval(() => {
@@ -1459,126 +1444,7 @@ ${directionEmoji} <b>${symbol}</b>
         }
     }
 
-    // 📢 ENVIAR MENSAJE DE COINCIDENCIA IA + SMARTMONEY
-    async sendTradeExecutionMessage(symbol, finalDecision, validation, marketData) {
-        try {
-            const chatId = -1001959577386; // Tu grupo de señales
-            
-            const message = `
-🎯 <b>¡IA Y SMARTMONEY COINCIDEN!</b>
 
-🚀 <b>OPERACIÓN EJECUTADA AUTOMÁTICAMENTE</b>
-
-💰 <b>SÍMBOLO:</b> ${symbol}
-📊 <b>ACCIÓN:</b> ${finalDecision.action}
-💵 <b>PRECIO:</b> $${marketData.price}
-
-🧠 <b>ANÁLISIS DUAL:</b>
-✅ SmartMoney: ${finalDecision.confidence}%
-✅ IA Validadora: ${validation.confidence}%
-
-🎯 <b>RAZONAMIENTO IA:</b>
-${validation.reasoning}
-
-⚡ <b>CONFIGURACIÓN:</b>
-🛡️ Stop Loss: 1.5%
-🎯 Take Profit: 3.75%
-⚖️ Risk/Reward: 1:2.5
-💰 Capital: $0.85 USD
-
-🤖 <i>Trade ejecutado por doble validación automática</i>
-            `.trim();
-
-            await this.bot.sendMessage(chatId, message, {
-                parse_mode: 'HTML',
-                disable_web_page_preview: true
-            });
-
-            this.logger.info(`📢 Mensaje de coincidencia enviado: ${symbol} ${finalDecision.action}`);
-
-        } catch (error) {
-            this.logger.error(`❌ Error enviando mensaje de coincidencia:`, error.message);
-        }
-    }
-
-    // 🔍 MÉTODOS PARA IA VALIDADORA
-    async handleAIValidatorEnable(chatId) {
-        try {
-            this.signalValidator.enable();
-            
-            const message = `
-🔍 <b>IA VALIDADORA HABILITADA</b>
-
-🧠 <b>SISTEMA DE DOBLE FILTRO ACTIVADO:</b>
-1️⃣ SmartMoney detecta oportunidad (65%+)
-2️⃣ IA Validadora analiza y decide (65%+)
-3️⃣ Solo ejecuta si ambos aprueban
-
-⚙️ <b>CONFIGURACIÓN IA:</b>
-🎯 Confianza mínima: 65%
-📊 Máx. validaciones/hora: 50
-🛡️ Análisis: Técnico avanzado + contexto de mercado
-
-✅ <b>Ahora el bot usará DOBLE VALIDACIÓN para máxima precisión</b>
-            `.trim();
-
-            await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
-        } catch (error) {
-            this.logger.error('Error habilitando IA validadora:', error);
-            await this.bot.sendMessage(chatId, '❌ Error habilitando IA validadora');
-        }
-    }
-
-    async handleAIValidatorDisable(chatId) {
-        try {
-            this.signalValidator.disable();
-            
-            const message = `
-🛑 <b>IA VALIDADORA DESHABILITADA</b>
-
-📊 <b>MODO ACTUAL:</b>
-✅ SmartMoney: ACTIVO (65%+ ejecuta directamente)
-❌ IA Validadora: DESACTIVADA
-
-⚠️ <b>El bot ahora ejecutará trades solo con SmartMoney (sin doble validación)</b>
-            `.trim();
-
-            await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
-        } catch (error) {
-            this.logger.error('Error deshabilitando IA validadora:', error);
-            await this.bot.sendMessage(chatId, '❌ Error deshabilitando IA validadora');
-        }
-    }
-
-    async handleAIValidatorStats(chatId) {
-        try {
-            const stats = this.signalValidator.getStats();
-            
-            const message = `
-📊 <b>ESTADÍSTICAS IA VALIDADORA</b>
-
-🔍 <b>ESTADO:</b> ${stats.enabled ? '✅ HABILITADA' : '❌ DESHABILITADA'}
-
-📈 <b>VALIDACIONES ESTA HORA:</b> ${stats.validationsThisHour}/${stats.maxValidationsPerHour}
-🎯 <b>CONFIANZA MÍNIMA:</b> ${stats.minConfidence}%
-
-🧠 <b>SISTEMA DE DOBLE FILTRO:</b>
-1️⃣ SmartMoney: 65%+ → Envía señal
-2️⃣ IA Validadora: ${stats.minConfidence}%+ → Ejecuta trade
-
-⚙️ <b>CONFIGURACIÓN:</b>
-🛡️ Análisis técnico avanzado
-📊 Contexto de mercado
-🎯 Risk/Reward evaluation
-⏰ Límite por hora: ${stats.maxValidationsPerHour}
-            `.trim();
-
-            await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
-        } catch (error) {
-            this.logger.error('Error obteniendo stats IA validadora:', error);
-            await this.bot.sendMessage(chatId, '❌ Error obteniendo estadísticas');
-        }
-    }
 
     stop() {
         this.isRunning = false;
@@ -1623,6 +1489,157 @@ ${validation.reasoning}
         } catch (error) {
             this.logger.error('Error verificando SL/TP:', error);
             await this.bot.sendMessage(chatId, `❌ Error verificando SL/TP: ${error.message}`);
+        }
+    }
+
+    // 🛡️ VERIFICAR CONFLICTOS SMARTMONEY vs IA SCALPING
+    async checkSmartMoneyConflict(symbol, smartMoneyAction) {
+        try {
+            if (!this.autoTrader) return false;
+            
+            // Obtener posiciones abiertas del símbolo
+            const positions = await this.autoTrader.getOpenPositions();
+            
+            if (!positions || positions.length === 0) {
+                return false; // No hay posiciones, no hay conflicto
+            }
+            
+            const targetPosition = positions.find(pos => pos.symbol === symbol);
+            if (!targetPosition || parseFloat(targetPosition.positionAmt) === 0) {
+                return false; // No hay posición en este símbolo
+            }
+            
+            const currentPositionAmt = parseFloat(targetPosition.positionAmt);
+            const isCurrentLong = currentPositionAmt > 0;
+            const isSmartMoneyLong = smartMoneyAction.includes('LONG');
+            
+            // Verificar si son direcciones opuestas
+            if (isCurrentLong !== isSmartMoneyLong) {
+                this.logger.warn(`🔍 CONFLICTO DETECTADO: ${symbol}`);
+                this.logger.warn(`📊 Posición actual: ${isCurrentLong ? 'LONG' : 'SHORT'} (${currentPositionAmt})`);
+                this.logger.warn(`📊 SmartMoney quiere: ${isSmartMoneyLong ? 'LONG' : 'SHORT'}`);
+                return true; // HAY CONFLICTO
+            }
+            
+            return false; // No hay conflicto
+            
+        } catch (error) {
+            this.logger.error(`❌ Error verificando conflictos SmartMoney ${symbol}:`, error.message);
+            return true; // En caso de error, evitar trade por seguridad
+        }
+    }
+
+    // 🚀 MÉTODOS PARA IA SCALPING
+    async handleScalpingEnable(chatId) {
+        try {
+            if (!this.scalpingAI) {
+                await this.bot.sendMessage(chatId, '❌ IA Scalping no está disponible');
+                return;
+            }
+
+            this.scalpingAI.enable();
+            if (!this.scalpingAI.isRunning) {
+                this.scalpingAI.start();
+            }
+            
+            const message = `
+🚀 <b>IA SCALPING HABILITADA</b>
+
+⚡ <b>SISTEMA PRINCIPAL ACTIVADO:</b>
+👂 Escucha mismo canal que SmartMoney
+🧠 Análisis IA de cada señal
+📤 Envía análisis al canal F77
+🎯 Prioridad sobre SmartMoney
+
+⚙️ <b>CONFIGURACIÓN SCALPING:</b>
+💰 Capital por trade: $0.50 USD
+⚡ Leverage: 20x
+🛡️ Stop Loss: 0.8%
+🎯 Take Profit: 1.6%
+⚖️ Risk/Reward: 1:2
+📈 Máx trades/hora: 50
+
+📊 <b>SÍMBOLOS MONITOREADOS:</b>
+BTC, ETH, BNB, SOL, ADA, XRP, DOGE
+
+✅ <b>IA Scalping operando en tiempo real</b>
+            `.trim();
+
+            await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+        } catch (error) {
+            this.logger.error('Error habilitando IA Scalping:', error);
+            await this.bot.sendMessage(chatId, '❌ Error habilitando IA Scalping');
+        }
+    }
+
+    async handleScalpingDisable(chatId) {
+        try {
+            if (!this.scalpingAI) {
+                await this.bot.sendMessage(chatId, '❌ IA Scalping no está disponible');
+                return;
+            }
+
+            this.scalpingAI.disable();
+            this.scalpingAI.stop();
+            
+            const message = `
+🛑 <b>IA SCALPING DESHABILITADA</b>
+
+📊 <b>ESTADO ACTUAL:</b>
+❌ IA Scalping: DESACTIVADA
+✅ SmartMoney: ACTIVO (80%+)
+✅ IA Validadora: DISPONIBLE
+
+⚠️ <b>Solo operará con señales SmartMoney de alta calidad (80%+)</b>
+            `.trim();
+
+            await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+        } catch (error) {
+            this.logger.error('Error deshabilitando IA Scalping:', error);
+            await this.bot.sendMessage(chatId, '❌ Error deshabilitando IA Scalping');
+        }
+    }
+
+    async handleScalpingStats(chatId) {
+        try {
+            if (!this.scalpingAI) {
+                await this.bot.sendMessage(chatId, '❌ IA Scalping no está disponible');
+                return;
+            }
+
+            const stats = this.scalpingAI.getStats();
+            
+            const message = `
+📊 <b>ESTADÍSTICAS IA SCALPING</b>
+
+🔍 <b>ESTADO:</b> ${stats.enabled ? '✅ HABILITADA' : '❌ DESHABILITADA'}
+🏃 <b>EJECUTÁNDOSE:</b> ${stats.isRunning ? '✅ SÍ' : '❌ NO'}
+
+📈 <b>TRADES ESTA HORA:</b> ${stats.analysisCount}/${stats.maxTradesPerHour}
+🎯 <b>CONFIANZA MÍNIMA:</b> ${stats.minConfidence}%
+
+💰 <b>CONFIGURACIÓN:</b>
+💵 Capital: $${stats.positionSize} USD
+⚡ Leverage: ${stats.leverage}x
+🛡️ Stop Loss: ${stats.slPercent}%
+🎯 Take Profit: ${stats.tpPercent}%
+
+📊 <b>ANÁLISIS:</b>
+⏰ Timeframes: ${stats.timeframes.join(', ')}
+🎯 Símbolos: ${stats.symbols.length} activos
+🔄 Frecuencia: 1 minuto
+
+🧠 <b>CAPACIDADES:</b>
+✅ Detección A FAVOR de tendencia
+✅ Detección CONTRA tendencia
+✅ Análisis técnico multi-timeframe
+✅ Ejecución autónoma
+            `.trim();
+
+            await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+        } catch (error) {
+            this.logger.error('Error obteniendo stats IA Scalping:', error);
+            await this.bot.sendMessage(chatId, '❌ Error obteniendo estadísticas');
         }
     }
 }

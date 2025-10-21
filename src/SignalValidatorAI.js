@@ -14,7 +14,7 @@ class SignalValidatorAI {
         
         // CONFIGURACIÓN PARA VALIDACIÓN DE SEÑALES (RESPETANDO LÍMITES GROQ)
         this.config = {
-            MIN_CONFIDENCE: 65,           // Mínimo 65% para validar señal
+            MIN_CONFIDENCE: 80,           // Mínimo 80% para validar señal
             ENABLED: true,                // Habilitado por defecto
             MAX_VALIDATIONS_PER_HOUR: 20, // Reducido para respetar rate limits
             RETRY_DELAY: 2000,            // 2 segundos entre reintentos
@@ -67,7 +67,7 @@ RESPUESTA REQUERIDA (JSON):
 }
 
 IMPORTANTE: 
-- Solo valida positivamente señales con 65%+ de confianza
+- Solo valida positivamente señales con 80%+ de confianza
 - Sé EXTREMADAMENTE selectivo y conservador
 - Prioriza la preservación de capital sobre las ganancias
 - Si hay dudas, responde NO_TRADE`;
