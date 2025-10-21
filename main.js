@@ -617,9 +617,9 @@ class DefBinanceProfessionalBot {
 
     async sendUltraFastResponse(decision, symbol, signalInfo, marketData) {
         try {
-            // SOLO ENVIAR SI CONFIANZA ≥70%
-            if (decision.confidence < 70) {
-                this.logger.info(`⚠️ Confianza ${decision.confidence}% < 70% - NO enviando al F77`);
+            // SOLO ENVIAR SI CONFIANZA ≥65%
+            if (decision.confidence < 65) {
+                this.logger.info(`⚠️ Confianza ${decision.confidence}% < 65% - NO enviando al F77`);
                 return;
             }
 
@@ -683,7 +683,7 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
             this.logger.info(`✅ Respuesta ultra rápida enviada: ${decision.action} - ${decision.confidence}%`);
 
             // 🔍 VALIDACIÓN IA DE SEÑAL SMARTMONEY (DOBLE FILTRO)
-            if (decision.confidence >= 70 && this.autoTrader && this.autoTrader.isEnabled() && this.signalValidator.isEnabled()) {
+            if (decision.confidence >= 65 && this.autoTrader && this.autoTrader.isEnabled() && this.signalValidator.isEnabled()) {
                 this.logger.info(`🔍 VALIDANDO señal SmartMoney con IA: ${symbol} - ${decision.confidence}%`);
                 
                 try {
@@ -745,7 +745,7 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
                 } catch (error) {
                     this.logger.error(`❌ Error ejecutando trade SmartMoney + IA:`, error.message);
                 }
-            } else if (decision.confidence >= 70 && this.autoTrader && this.autoTrader.isEnabled() && !this.signalValidator.isEnabled()) {
+            } else if (decision.confidence >= 65 && this.autoTrader && this.autoTrader.isEnabled() && !this.signalValidator.isEnabled()) {
                 // FALLBACK: Solo SmartMoney sin IA validadora
                 this.logger.info(`🤖 EJECUTANDO AUTOMÁTICAMENTE (Solo SmartMoney): ${symbol} - ${decision.confidence}%`);
                 
@@ -1505,12 +1505,12 @@ ${validation.reasoning}
 🔍 <b>IA VALIDADORA HABILITADA</b>
 
 🧠 <b>SISTEMA DE DOBLE FILTRO ACTIVADO:</b>
-1️⃣ SmartMoney detecta oportunidad (70%+)
-2️⃣ IA Validadora analiza y decide (70%+)
+1️⃣ SmartMoney detecta oportunidad (65%+)
+2️⃣ IA Validadora analiza y decide (65%+)
 3️⃣ Solo ejecuta si ambos aprueban
 
 ⚙️ <b>CONFIGURACIÓN IA:</b>
-🎯 Confianza mínima: 70%
+🎯 Confianza mínima: 65%
 📊 Máx. validaciones/hora: 50
 🛡️ Análisis: Técnico avanzado + contexto de mercado
 
@@ -1532,7 +1532,7 @@ ${validation.reasoning}
 🛑 <b>IA VALIDADORA DESHABILITADA</b>
 
 📊 <b>MODO ACTUAL:</b>
-✅ SmartMoney: ACTIVO (70%+ ejecuta directamente)
+✅ SmartMoney: ACTIVO (65%+ ejecuta directamente)
 ❌ IA Validadora: DESACTIVADA
 
 ⚠️ <b>El bot ahora ejecutará trades solo con SmartMoney (sin doble validación)</b>
@@ -1558,7 +1558,7 @@ ${validation.reasoning}
 🎯 <b>CONFIANZA MÍNIMA:</b> ${stats.minConfidence}%
 
 🧠 <b>SISTEMA DE DOBLE FILTRO:</b>
-1️⃣ SmartMoney: 70%+ → Envía señal
+1️⃣ SmartMoney: 65%+ → Envía señal
 2️⃣ IA Validadora: ${stats.minConfidence}%+ → Ejecuta trade
 
 ⚙️ <b>CONFIGURACIÓN:</b>
