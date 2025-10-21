@@ -1279,7 +1279,7 @@ ${directionEmoji} <b>${symbol}</b>
             
             // 4. Calcular posición objetivo ($0.70 - $1.00 USD)
             const targetUSD = 0.85; // $0.85 USD por trade
-            const leverage = maxLeverage;
+            const leverage = 15; // FORZAR 15x para coincidir con cálculos SL/TP
             
             // 5. Calcular cantidad exacta
             const notionalValue = targetUSD * leverage; // Valor nocional con apalancamiento
