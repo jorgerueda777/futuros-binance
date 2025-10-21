@@ -5,6 +5,7 @@ const input = require('input');
 const chalk = require('chalk');
 const fs = require('fs-extra');
 const path = require('path');
+const axios = require('axios');
 require('dotenv').config({ path: './config.env' });
 
 const TechnicalAnalyzer = require('./src/TechnicalAnalyzer');
