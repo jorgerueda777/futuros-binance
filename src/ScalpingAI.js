@@ -100,8 +100,19 @@ class ScalpingAI {
                 await this.sendAISignalToF77(symbol, aiDecision, signalText);
                 
                 return aiDecision;
+            } else if (aiDecision) {
+                this.logger.info(`❌ IA SCALPING rechaza señal: ${symbol} - Confianza: ${aiDecision.confidence}% < ${this.config.MIN_CONFIDENCE}%`);
+                return null;
             } else {
-                this.logger.info(`❌ IA SCALPING rechaza señal: ${symbol} - Confianza: ${aiDecision?.confidence || 0}%`);
+                // FALLBACK: Si IA falla completamente, crear decisión básica
+                this.logger.warn(`⚠️ IA SCALPING falló completamente para ${symbol} - Usando análisis básico`);
+                
+                const basicDecision = this.createBasicDecision(symbol, signalText, marketData, technicalData);
+                if (basicDecision) {
+                    this.logger.info(`🔄 Análisis básico: ${symbol} ${basicDecision.decision} - ${basicDecision.confidence}%`);
+                    return basicDecision;
+                }
+                
                 return null;
             }
             
@@ -285,7 +296,18 @@ class ScalpingAI {
     // ANÁLISIS IA PARA SEÑALES DEL CANAL
     async analyzeSignalWithAI(symbol, signalText, marketData, technicalData) {
         try {
+            // Validar API Key
+            if (!this.groqApiKey || this.groqApiKey === 'undefined') {
+                this.logger.error('❌ GROQ_API_KEY no configurada correctamente');
+                return null;
+            }
+
             const prompt = this.buildChannelSignalPrompt(symbol, signalText, marketData, technicalData);
+            
+            // Limitar tamaño del prompt
+            const limitedPrompt = prompt.length > 3000 ? prompt.substring(0, 3000) + '...' : prompt;
+            
+            this.logger.info(`🧠 Enviando request a Groq API para ${symbol}...`);
             
             const response = await axios.post(`${this.baseURL}/chat/completions`, {
                 model: 'llama-3.1-70b-versatile',
@@ -296,7 +318,7 @@ class ScalpingAI {
                     },
                     {
                         role: 'user',
-                        content: prompt
+                        content: limitedPrompt
                     }
                 ],
                 temperature: 0.1,
@@ -305,14 +327,28 @@ class ScalpingAI {
                 headers: {
                     'Authorization': `Bearer ${this.groqApiKey}`,
                     'Content-Type': 'application/json'
-                }
+                },
+                timeout: 10000 // 10 segundos timeout
             });
+            
+            this.logger.info(`✅ Respuesta recibida de Groq API para ${symbol}`);
             
             const aiResponse = response.data.choices[0].message.content;
             return this.parseAIResponse(aiResponse);
             
         } catch (error) {
             this.logger.error(`❌ Error en análisis IA para señal ${symbol}:`, error.message);
+            
+            // Log detallado del error
+            if (error.response) {
+                this.logger.error(`📊 Status: ${error.response.status}`);
+                this.logger.error(`📊 Data:`, error.response.data);
+            } else if (error.request) {
+                this.logger.error(`📊 No response received`);
+            } else {
+                this.logger.error(`📊 Request setup error:`, error.message);
+            }
+            
             return null;
         }
     }
@@ -352,60 +388,38 @@ class ScalpingAI {
         }
     }
 
-    // CONSTRUIR PROMPT PARA SEÑALES DEL CANAL
+    // CONSTRUIR PROMPT PARA SEÑALES DEL CANAL (SIMPLIFICADO)
     buildChannelSignalPrompt(symbol, signalText, marketData, technicalData) {
-        return `
-ANÁLISIS IA DE SEÑAL DEL CANAL ${symbol}:
+        // Limpiar signalText de caracteres problemáticos
+        const cleanSignal = signalText.replace(/[^\w\s\-\.\$\%\#\@]/g, ' ').substring(0, 200);
+        
+        return `Analiza esta señal de trading:
 
-📡 SEÑAL RECIBIDA DEL CANAL:
-"${signalText}"
+SÍMBOLO: ${symbol}
+SEÑAL: "${cleanSignal}"
+PRECIO: $${marketData.price}
+CAMBIO 24H: ${marketData.priceChange24h || 0}%
 
-📊 DATOS DE MERCADO ACTUALES:
-- Precio: $${marketData.price}
-- Cambio 24h: ${marketData.priceChange24h}%
-- Volumen 24h: $${(marketData.volume24h / 1000000).toFixed(2)}M
+TÉCNICO 1MIN:
+RSI: ${technicalData['1m']?.rsi?.toFixed(2) || 'N/A'}
+EMA9: ${technicalData['1m']?.ema9?.toFixed(6) || 'N/A'}
+EMA21: ${technicalData['1m']?.ema21?.toFixed(6) || 'N/A'}
 
-📈 ANÁLISIS TÉCNICO 1MIN:
-- RSI: ${technicalData['1m']?.rsi?.toFixed(2)}
-- EMA9: $${technicalData['1m']?.ema9?.toFixed(6)}
-- EMA21: $${technicalData['1m']?.ema21?.toFixed(6)}
-- Precio vs EMA9: ${((marketData.price - technicalData['1m']?.ema9) / technicalData['1m']?.ema9 * 100).toFixed(2)}%
-- MACD: ${JSON.stringify(technicalData['1m']?.macd)}
-- Bollinger: ${JSON.stringify(technicalData['1m']?.bollinger)}
+TÉCNICO 5MIN:
+RSI: ${technicalData['5m']?.rsi?.toFixed(2) || 'N/A'}
 
-📊 ANÁLISIS TÉCNICO 5MIN:
-- RSI: ${technicalData['5m']?.rsi?.toFixed(2)}
-- EMA9: $${technicalData['5m']?.ema9?.toFixed(6)}
-- EMA21: $${technicalData['5m']?.ema21?.toFixed(6)}
+INSTRUCCIONES:
+- Analiza si la señal es válida técnicamente
+- Mínimo 80% confianza para aprobar
+- Puedes CONFIRMAR, RECHAZAR o CONTRADECIR la señal
 
-📈 ANÁLISIS TÉCNICO 15MIN:
-- RSI: ${technicalData['15m']?.rsi?.toFixed(2)}
-- EMA50: $${technicalData['15m']?.ema50?.toFixed(6)}
-
-🔍 DATOS ADICIONALES:
-- Open Interest: ${technicalData.openInterest}
-- Funding Rate: ${(parseFloat(technicalData.fundingRate) * 100).toFixed(4)}%
-
-INSTRUCCIONES PARA IA SCALPING:
-1. Analiza la SEÑAL DEL CANAL junto con los datos técnicos
-2. Determina si la señal es válida según el contexto técnico actual
-3. Considera si es momento adecuado para seguir la señal
-4. Evalúa riesgos y oportunidades
-5. Decide si CONFIRMAR la señal o RECHAZARLA
-6. Mínimo 80% confianza para confirmar
-
-IMPORTANTE:
-- Puedes CONFIRMAR la señal (misma dirección)
-- Puedes RECHAZAR la señal (NO_TRADE)
-- Puedes CONTRADECIR la señal (dirección opuesta si hay razones técnicas fuertes)
-
-Responde SOLO en formato JSON:
+Responde SOLO en JSON:
 {
   "decision": "BUY" | "SELL" | "NO_TRADE",
   "confidence": 0-100,
-  "reasoning": "Explicación detallada de tu decisión",
+  "reasoning": "Breve explicación",
   "signal_validation": "CONFIRM" | "REJECT" | "CONTRADICT",
-  "technical_reason": "Razón técnica principal"
+  "technical_reason": "Razón técnica"
 }`;
     }
 
@@ -520,6 +534,74 @@ Responde SOLO en formato JSON:
             
         } catch (error) {
             this.logger.error(`❌ Error ejecutando scalp ${symbol}:`, error.message);
+        }
+    }
+
+    // 🔄 ANÁLISIS BÁSICO DE FALLBACK (SI IA FALLA)
+    createBasicDecision(symbol, signalText, marketData, technicalData) {
+        try {
+            // Análisis técnico básico sin IA
+            const rsi1m = technicalData['1m']?.rsi;
+            const rsi5m = technicalData['5m']?.rsi;
+            const ema9_1m = technicalData['1m']?.ema9;
+            const price = marketData.price;
+            
+            // Detectar dirección de la señal original
+            const isLongSignal = signalText.toLowerCase().includes('long') || 
+                               signalText.toLowerCase().includes('buy') || 
+                               signalText.includes('🟢');
+            
+            const isShortSignal = signalText.toLowerCase().includes('short') || 
+                                signalText.toLowerCase().includes('sell') || 
+                                signalText.includes('🔴');
+            
+            if (!isLongSignal && !isShortSignal) {
+                return null; // No se puede determinar dirección
+            }
+            
+            // Análisis técnico básico
+            let confidence = 60; // Base
+            let decision = 'NO_TRADE';
+            let reasoning = 'Análisis técnico básico';
+            
+            if (rsi1m && ema9_1m) {
+                if (isLongSignal) {
+                    if (price > ema9_1m && rsi1m < 70) {
+                        decision = 'BUY';
+                        confidence = 75;
+                        reasoning = 'Precio sobre EMA9, RSI no sobrecomprado';
+                    }
+                } else if (isShortSignal) {
+                    if (price < ema9_1m && rsi1m > 30) {
+                        decision = 'SELL';
+                        confidence = 75;
+                        reasoning = 'Precio bajo EMA9, RSI no sobrevendido';
+                    }
+                }
+                
+                // Boost de confianza con RSI 5m
+                if (rsi5m && decision !== 'NO_TRADE') {
+                    if ((decision === 'BUY' && rsi5m < 60) || (decision === 'SELL' && rsi5m > 40)) {
+                        confidence += 10;
+                    }
+                }
+            }
+            
+            if (confidence >= this.config.MIN_CONFIDENCE) {
+                return {
+                    decision: decision,
+                    confidence: confidence,
+                    reasoning: reasoning,
+                    signal_validation: 'CONFIRM',
+                    technical_reason: 'Análisis técnico básico de fallback'
+                };
+            }
+            
+            return null;
+            
+        } catch (error) {
+            this.logger.error(`❌ Error en análisis básico para ${symbol}:`, error.message);
+            return null;
         }
     }
 
