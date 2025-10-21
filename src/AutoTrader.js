@@ -130,7 +130,7 @@ class AutoTrader {
     }
 
     // Verificar límites de seguridad
-    checkSafetyLimits() {
+    async checkSafetyLimits() {
         // Resetear contador diario
         const today = new Date().toDateString();
         if (this.lastTradeDate !== today) {
@@ -149,12 +149,53 @@ class AutoTrader {
             return false;
         }
 
-        if (this.openPositions.size >= this.config.MAX_OPEN_POSITIONS) {
-            this.logger.warn(`🚫 Máximo de posiciones abiertas: ${this.openPositions.size}/${this.config.MAX_OPEN_POSITIONS}`);
-            return false;
+        // Consultar posiciones reales de Binance
+        try {
+            const realPositions = await this.getRealOpenPositions();
+            if (realPositions >= this.config.MAX_OPEN_POSITIONS) {
+                this.logger.warn(`🚫 Máximo de posiciones abiertas: ${realPositions}/${this.config.MAX_OPEN_POSITIONS}`);
+                return false;
+            }
+            this.logger.info(`📊 Posiciones abiertas: ${realPositions}/${this.config.MAX_OPEN_POSITIONS}`);
+        } catch (error) {
+            this.logger.warn(`⚠️ Error consultando posiciones: ${error.message} - Usando contador interno: ${this.openPositions.size}`);
+            if (this.openPositions.size >= this.config.MAX_OPEN_POSITIONS) {
+                this.logger.warn(`🚫 Máximo de posiciones abiertas: ${this.openPositions.size}/${this.config.MAX_OPEN_POSITIONS}`);
+                return false;
+            }
         }
 
         return true;
+    }
+
+    // 📊 CONSULTAR POSICIONES REALES DE BINANCE
+    async getRealOpenPositions() {
+        try {
+            const timestamp = Date.now();
+            const params = {
+                timestamp: timestamp
+            };
+            
+            const queryString = new URLSearchParams(params).toString();
+            const signature = this.generateSignature(queryString);
+            
+            const response = await axios.get(`${this.baseURL}/fapi/v2/positionRisk?${queryString}&signature=${signature}`, {
+                headers: {
+                    'X-MBX-APIKEY': this.apiKey
+                }
+            });
+            
+            // Contar posiciones con tamaño > 0
+            const openPositions = response.data.filter(pos => 
+                parseFloat(pos.positionAmt) !== 0
+            ).length;
+            
+            return openPositions;
+            
+        } catch (error) {
+            this.logger.error(`❌ Error consultando posiciones reales: ${error.message}`);
+            throw error;
+        }
     }
 
     // Configurar apalancamiento para el símbolo
@@ -175,7 +216,7 @@ class AutoTrader {
     // Ejecutar orden de mercado
     async executeMarketOrder(symbol, side, quantity, confidence) {
         try {
-            if (!this.checkSafetyLimits()) {
+            if (!(await this.checkSafetyLimits())) {
                 return null;
             }
 
@@ -268,7 +309,7 @@ class AutoTrader {
             this.logger.info(`🚀 EJECUTANDO TRADE INTELIGENTE: ${side} ${quantity} ${symbol}`);
             this.logger.info(`💰 Valor: $${targetUSD} USD con ${leverage}x leverage`);
             
-            if (!this.checkSafetyLimits()) {
+            if (!(await this.checkSafetyLimits())) {
                 return null;
             }
 
