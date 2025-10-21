@@ -54,7 +54,9 @@ class DefBinanceProfessionalBot {
         // 🔍 IA VALIDADORA DE SEÑALES (DOBLE FILTRO)
         this.signalValidator = new SignalValidatorAI(
             process.env.GROQ_API_KEY,
-            this.logger
+            this.logger,
+            process.env.BINANCE_API_KEY,
+            process.env.BINANCE_SECRET_KEY
         );
         
         // Restaurar estado de trading si estaba habilitado
