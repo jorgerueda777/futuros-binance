@@ -310,7 +310,7 @@ class ScalpingAI {
             this.logger.info(`🧠 Enviando request a Groq API para ${symbol}...`);
             
             const response = await axios.post(`${this.baseURL}/chat/completions`, {
-                model: 'llama-3.1-70b-versatile',
+                model: 'llama-3.1-8b-instant',
                 messages: [
                     {
                         role: 'system',
@@ -359,7 +359,7 @@ class ScalpingAI {
             const prompt = this.buildScalpingPrompt(symbol, marketData, technicalData);
             
             const response = await axios.post(`${this.baseURL}/chat/completions`, {
-                model: 'llama-3.1-70b-versatile',
+                model: 'llama-3.1-8b-instant',
                 messages: [
                     {
                         role: 'system',
