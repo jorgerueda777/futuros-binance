@@ -501,10 +501,19 @@ Responde SOLO en formato JSON:
             const entryPrice = marketData.price;
             const isLong = decision.decision === 'BUY';
             
+            // Obtener filtros de Binance para el símbolo
+            const symbolInfo = await this.getSymbolFilters(symbol);
+            if (!symbolInfo) {
+                this.logger.error(`❌ No se pudieron obtener filtros para ${symbol}`);
+                return;
+            }
+            
             // Calcular cantidad total con leverage
             const totalExposure = this.config.POSITION_SIZE_USD * this.config.LEVERAGE;
             const rawQuantity = totalExposure / entryPrice;
-            const quantity = parseFloat(rawQuantity.toFixed(8)); // Máximo 8 decimales
+            
+            // Aplicar filtros de Binance
+            const quantity = this.applyQuantityFilters(rawQuantity, symbolInfo);
             
             // Calcular SL/TP basado en USD fijos
             const slDistance = this.config.SCALP_SL_USD / quantity; // Distancia en precio para perder $0.15
@@ -547,6 +556,72 @@ Responde SOLO en formato JSON:
             
         } catch (error) {
             this.logger.error(`❌ Error ejecutando scalp ${symbol}:`, error.message);
+        }
+    }
+
+    // 📊 OBTENER FILTROS DE BINANCE PARA SÍMBOLO
+    async getSymbolFilters(symbol) {
+        try {
+            const response = await axios.get(`https://fapi.binance.com/fapi/v1/exchangeInfo`);
+            const symbolInfo = response.data.symbols.find(s => s.symbol === symbol);
+            
+            if (!symbolInfo) {
+                this.logger.error(`❌ Símbolo ${symbol} no encontrado en exchangeInfo`);
+                return null;
+            }
+            
+            // Extraer filtros importantes
+            const lotSizeFilter = symbolInfo.filters.find(f => f.filterType === 'LOT_SIZE');
+            const priceFilter = symbolInfo.filters.find(f => f.filterType === 'PRICE_FILTER');
+            
+            return {
+                symbol: symbol,
+                quantityPrecision: symbolInfo.quantityPrecision,
+                pricePrecision: symbolInfo.pricePrecision,
+                minQty: parseFloat(lotSizeFilter?.minQty || '0'),
+                maxQty: parseFloat(lotSizeFilter?.maxQty || '999999999'),
+                stepSize: parseFloat(lotSizeFilter?.stepSize || '1'),
+                minPrice: parseFloat(priceFilter?.minPrice || '0'),
+                maxPrice: parseFloat(priceFilter?.maxPrice || '999999999'),
+                tickSize: parseFloat(priceFilter?.tickSize || '0.01')
+            };
+            
+        } catch (error) {
+            this.logger.error(`❌ Error obteniendo filtros para ${symbol}:`, error.message);
+            return null;
+        }
+    }
+
+    // 🔧 APLICAR FILTROS DE CANTIDAD DE BINANCE
+    applyQuantityFilters(rawQuantity, symbolInfo) {
+        try {
+            // Redondear según stepSize
+            const stepSize = symbolInfo.stepSize;
+            const precision = symbolInfo.quantityPrecision;
+            
+            // Calcular cantidad ajustada al stepSize
+            const adjustedQuantity = Math.floor(rawQuantity / stepSize) * stepSize;
+            
+            // Redondear a la precisión correcta
+            const finalQuantity = parseFloat(adjustedQuantity.toFixed(precision));
+            
+            // Verificar límites
+            if (finalQuantity < symbolInfo.minQty) {
+                this.logger.warn(`⚠️ Cantidad ${finalQuantity} < mínimo ${symbolInfo.minQty}`);
+                return symbolInfo.minQty;
+            }
+            
+            if (finalQuantity > symbolInfo.maxQty) {
+                this.logger.warn(`⚠️ Cantidad ${finalQuantity} > máximo ${symbolInfo.maxQty}`);
+                return symbolInfo.maxQty;
+            }
+            
+            this.logger.info(`🔧 Cantidad ajustada: ${rawQuantity.toFixed(8)} → ${finalQuantity}`);
+            return finalQuantity;
+            
+        } catch (error) {
+            this.logger.error(`❌ Error aplicando filtros:`, error.message);
+            return parseFloat(rawQuantity.toFixed(6)); // Fallback
         }
     }
 
