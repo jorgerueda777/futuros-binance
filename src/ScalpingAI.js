@@ -509,23 +509,30 @@ Responde SOLO en formato JSON:
                 entryPrice * (1 + this.config.SCALP_TP_PERCENT) : 
                 entryPrice * (1 - this.config.SCALP_TP_PERCENT);
             
+            // Calcular cantidad correctamente
+            const rawQuantity = (this.config.POSITION_SIZE_USD * this.config.LEVERAGE) / entryPrice;
+            const quantity = parseFloat(rawQuantity.toFixed(8)); // Máximo 8 decimales
+            
             // Configurar trade
             const tradeConfig = {
                 symbol: symbol,
                 side: isLong ? 'BUY' : 'SELL',
-                quantity: (this.config.POSITION_SIZE_USD * this.config.LEVERAGE) / entryPrice,
+                quantity: quantity,
                 price: entryPrice,
-                stopLoss: stopLoss,
-                takeProfit: takeProfit,
+                stopLoss: parseFloat(stopLoss.toFixed(8)),
+                takeProfit: parseFloat(takeProfit.toFixed(8)),
                 leverage: this.config.LEVERAGE,
                 targetUSD: this.config.POSITION_SIZE_USD
             };
             
             this.logger.info(`💰 SCALP CONFIG: $${this.config.POSITION_SIZE_USD} USD, ${this.config.LEVERAGE}x leverage`);
             this.logger.info(`🛡️ SL: $${stopLoss.toFixed(6)} | TP: $${takeProfit.toFixed(6)}`);
+            this.logger.info(`📊 Cantidad: ${quantity} ${symbol.replace('USDT', '')}`);
+            this.logger.info(`📈 Entrada: $${entryPrice} | Dirección: ${isLong ? 'LONG' : 'SHORT'}`);
             
             // Ejecutar con AutoTrader
             if (this.autoTrader && this.autoTrader.isEnabled()) {
+                this.logger.info(`🚀 Enviando trade a AutoTrader...`);
                 await this.autoTrader.executeTrade(tradeConfig);
                 this.logger.info(`✅ SCALP EJECUTADO: ${symbol} ${decision.decision} - ${decision.type}`);
             } else {
