@@ -389,22 +389,22 @@ class DefBinanceProfessionalBot {
     async extractSymbolFromText(text) {
         try {
             const patterns = [
-                /#([A-Z]{2,10}USDT)/gi,          // #BTCUSDT
-                /([A-Z]{2,10}USDT)/gi,           // BTCUSDT
-                /#([A-Z]{2,10})\s/gi,            // #BTC 
-                /([A-Z]{2,10})\s*📈/gi,          // BTC 📈
-                /([A-Z]{2,10})\s*📉/gi,          // BTC 📉
-                /([A-Z]{2,10})\s*🟢/gi,          // BTC 🟢
-                /([A-Z]{2,10})\s*🔴/gi,          // BTC 🔴
-                /([A-Z]{2,10})\s*LONG/gi,        // BTC LONG
-                /([A-Z]{2,10})\s*SHORT/gi,       // BTC SHORT
-                /([A-Z]{2,10})\s*signal/gi       // BTC signal
+                /#([0-9A-Z]{2,15}USDT)/gi,       // #2ZUSDT, #1000PEPEUSDT
+                /([0-9A-Z]{2,15}USDT)/gi,        // 2ZUSDT, 1000PEPEUSDT
+                /#([0-9A-Z]{2,10})\s/gi,         // #2Z, #1000PEPE
+                /([0-9A-Z]{2,10})\s*📈/gi,       // 2Z 📈
+                /([0-9A-Z]{2,10})\s*📉/gi,       // 2Z 📉
+                /([0-9A-Z]{2,10})\s*🟢/gi,       // 2Z 🟢
+                /([0-9A-Z]{2,10})\s*🔴/gi,       // 2Z 🔴
+                /([0-9A-Z]{2,10})\s*LONG/gi,     // 2Z LONG
+                /([0-9A-Z]{2,10})\s*SHORT/gi,    // 2Z SHORT
+                /([0-9A-Z]{2,10})\s*signal/gi    // 2Z signal
             ];
 
             for (const pattern of patterns) {
                 const matches = text.match(pattern);
                 if (matches && matches.length > 0) {
-                    let symbol = matches[0].replace(/[^A-Z]/g, '');
+                    let symbol = matches[0].replace(/[^0-9A-Z]/g, '');
                     
                     // Si ya termina en USDT, verificar directamente
                     if (symbol.endsWith('USDT')) {
@@ -429,8 +429,8 @@ class DefBinanceProfessionalBot {
     // VALIDAR SÍMBOLO CON BINANCE API (NO LISTA FIJA)
     async isValidCryptoSymbol(symbol) {
         try {
-            // Validación básica de formato
-            if (!symbol || symbol.length < 2 || symbol.length > 15) {
+            // Validación básica de formato (acepta números y letras)
+            if (!symbol || symbol.length < 2 || symbol.length > 15 || !/^[0-9A-Z]+$/.test(symbol)) {
                 return false;
             }
             
