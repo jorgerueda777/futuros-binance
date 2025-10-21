@@ -279,6 +279,11 @@ class DefBinanceProfessionalBot {
             await this.handleAIValidatorStats(msg.chat.id);
         });
 
+        // 🛡️ COMANDO PARA VERIFICAR Y CORREGIR SL/TP
+        this.bot.onText(/\/fix_sltp/, async (msg) => {
+            await this.handleFixSLTP(msg.chat.id);
+        });
+
         // Manejo de errores
         this.bot.on('error', (error) => {
             this.logger.error('Bot error:', error);
@@ -1579,6 +1584,46 @@ ${validation.reasoning}
         this.isRunning = false;
         this.bot.stopPolling();
         this.logger.info('🛑 Bot DefBinance Professional detenido');
+    }
+
+    // 🛡️ VERIFICAR Y CORREGIR POSICIONES SIN SL/TP
+    async handleFixSLTP(chatId) {
+        try {
+            if (!this.autoTrader || !this.autoTrader.isEnabled()) {
+                await this.bot.sendMessage(chatId, '❌ Trading automático no está habilitado');
+                return;
+            }
+
+            const message = `
+🔍 <b>VERIFICANDO POSICIONES SIN SL/TP</b>
+
+⏳ Escaneando todas las posiciones abiertas...
+🛡️ Aplicando SL/TP de emergencia si es necesario...
+
+<i>Esto puede tomar unos segundos...</i>
+            `.trim();
+
+            await this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+
+            // Ejecutar verificación
+            await this.autoTrader.checkAndFixPositionsWithoutSLTP();
+
+            const successMessage = `
+✅ <b>VERIFICACIÓN COMPLETADA</b>
+
+🛡️ <b>TODAS LAS POSICIONES VERIFICADAS</b>
+📊 SL/TP aplicados donde era necesario
+🔧 Configuración actual: SL=1.18%, TP=2.95%
+
+💡 <i>Revisa los logs para detalles específicos</i>
+            `.trim();
+
+            await this.bot.sendMessage(chatId, successMessage, { parse_mode: 'HTML' });
+
+        } catch (error) {
+            this.logger.error('Error verificando SL/TP:', error);
+            await this.bot.sendMessage(chatId, `❌ Error verificando SL/TP: ${error.message}`);
+        }
     }
 }
 

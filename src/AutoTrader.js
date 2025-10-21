@@ -519,6 +519,115 @@ class AutoTrader {
         }
     }
 
+    // 🔍 VERIFICAR Y CORREGIR POSICIONES SIN SL/TP
+    async checkAndFixPositionsWithoutSLTP() {
+        try {
+            this.logger.info(`🔍 VERIFICANDO posiciones sin SL/TP...`);
+            
+            // Obtener posiciones abiertas
+            const positions = await this.getOpenPositions();
+            
+            if (!positions || positions.length === 0) {
+                this.logger.info(`✅ No hay posiciones abiertas`);
+                return;
+            }
+            
+            // Obtener órdenes abiertas (SL/TP)
+            const openOrders = await this.getOpenOrders();
+            
+            for (const position of positions) {
+                if (parseFloat(position.positionAmt) === 0) continue; // Skip posiciones cerradas
+                
+                const symbol = position.symbol;
+                const positionAmt = parseFloat(position.positionAmt);
+                const entryPrice = parseFloat(position.entryPrice);
+                const isLong = positionAmt > 0;
+                
+                // Verificar si tiene SL/TP
+                const hasSL = openOrders.some(order => 
+                    order.symbol === symbol && 
+                    order.type === 'STOP_MARKET' && 
+                    order.reduceOnly
+                );
+                
+                const hasTP = openOrders.some(order => 
+                    order.symbol === symbol && 
+                    order.type === 'TAKE_PROFIT_MARKET' && 
+                    order.reduceOnly
+                );
+                
+                if (!hasSL || !hasTP) {
+                    this.logger.warn(`⚠️ ${symbol} SIN PROTECCIÓN: SL=${hasSL ? '✅' : '❌'} TP=${hasTP ? '✅' : '❌'}`);
+                    
+                    // Calcular SL/TP basado en configuración actual
+                    const stopLoss = isLong ? 
+                        entryPrice * (1 - 0.0118) : // 1.18% SL
+                        entryPrice * (1 + 0.0118);
+                        
+                    const takeProfit = isLong ? 
+                        entryPrice * (1 + 0.0295) : // 2.95% TP
+                        entryPrice * (1 - 0.0295);
+                    
+                    this.logger.info(`🛡️ APLICANDO SL/TP de emergencia a ${symbol}`);
+                    this.logger.info(`📊 Entry: $${entryPrice}, SL: $${stopLoss}, TP: $${takeProfit}`);
+                    
+                    // Aplicar SL/TP
+                    await this.setDynamicStopLossAndTakeProfit(
+                        symbol, 
+                        isLong ? 'BUY' : 'SELL', 
+                        entryPrice, 
+                        stopLoss, 
+                        takeProfit, 
+                        Math.abs(positionAmt)
+                    );
+                    
+                    this.logger.info(`✅ SL/TP de emergencia aplicado a ${symbol}`);
+                }
+            }
+            
+        } catch (error) {
+            this.logger.error(`❌ Error verificando posiciones sin SL/TP:`, error.message);
+        }
+    }
+
+    // Obtener posiciones abiertas
+    async getOpenPositions() {
+        try {
+            const timestamp = Date.now();
+            const params = { timestamp };
+            const queryString = new URLSearchParams(params).toString();
+            const signature = this.generateSignature(queryString);
+            
+            const response = await axios.get(`${this.baseURL}/fapi/v2/positionRisk?${queryString}&signature=${signature}`, {
+                headers: { 'X-MBX-APIKEY': this.apiKey }
+            });
+            
+            return response.data.filter(pos => parseFloat(pos.positionAmt) !== 0);
+        } catch (error) {
+            this.logger.error(`❌ Error obteniendo posiciones:`, error.message);
+            return [];
+        }
+    }
+
+    // Obtener órdenes abiertas
+    async getOpenOrders() {
+        try {
+            const timestamp = Date.now();
+            const params = { timestamp };
+            const queryString = new URLSearchParams(params).toString();
+            const signature = this.generateSignature(queryString);
+            
+            const response = await axios.get(`${this.baseURL}/fapi/v1/openOrders?${queryString}&signature=${signature}`, {
+                headers: { 'X-MBX-APIKEY': this.apiKey }
+            });
+            
+            return response.data;
+        } catch (error) {
+            this.logger.error(`❌ Error obteniendo órdenes abiertas:`, error.message);
+            return [];
+        }
+    }
+
     // Habilitar/deshabilitar trading
     enableTrading(enabled = true) {
         this.config.TRADING_ENABLED = enabled;
