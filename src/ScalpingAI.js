@@ -22,10 +22,10 @@ class ScalpingAI {
             MAX_TRADES_PER_HOUR: 50,         // Muy agresivo
             SYMBOLS: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 'DOGEUSDT'],
             
-            // PARÁMETROS SCALPING
-            SCALP_SL_PERCENT: 0.008,         // 0.8% SL (muy tight)
-            SCALP_TP_PERCENT: 0.016,         // 1.6% TP (R:R 1:2)
-            POSITION_SIZE_USD: 0.50,         // $0.50 por scalp
+            // PARÁMETROS SCALPING (VALORES FIJOS)
+            SCALP_SL_USD: 0.15,              // $0.15 pérdida máxima
+            SCALP_TP_USD: 0.37,              // $0.37 ganancia objetivo
+            POSITION_SIZE_USD: 0.85,         // $0.85 por scalp
             LEVERAGE: 20,                    // 20x para scalping
             
             // TIMEFRAMES PARA ANÁLISIS
@@ -497,21 +497,26 @@ Responde SOLO en formato JSON:
             this.logger.info(`🚀 EJECUTANDO SCALP: ${symbol} ${decision.decision} - Confianza: ${decision.confidence}%`);
             this.logger.info(`📊 Tipo: ${decision.type} - Razón: ${decision.entry_reason}`);
             
-            // Calcular SL/TP para scalping
+            // Calcular SL/TP para scalping (VALORES FIJOS EN USD)
             const entryPrice = marketData.price;
             const isLong = decision.decision === 'BUY';
             
+            // Calcular cantidad total con leverage
+            const totalExposure = this.config.POSITION_SIZE_USD * this.config.LEVERAGE;
+            const rawQuantity = totalExposure / entryPrice;
+            const quantity = parseFloat(rawQuantity.toFixed(8)); // Máximo 8 decimales
+            
+            // Calcular SL/TP basado en USD fijos
+            const slDistance = this.config.SCALP_SL_USD / quantity; // Distancia en precio para perder $0.15
+            const tpDistance = this.config.SCALP_TP_USD / quantity; // Distancia en precio para ganar $0.37
+            
             const stopLoss = isLong ? 
-                entryPrice * (1 - this.config.SCALP_SL_PERCENT) : 
-                entryPrice * (1 + this.config.SCALP_SL_PERCENT);
+                entryPrice - slDistance : 
+                entryPrice + slDistance;
                 
             const takeProfit = isLong ? 
-                entryPrice * (1 + this.config.SCALP_TP_PERCENT) : 
-                entryPrice * (1 - this.config.SCALP_TP_PERCENT);
-            
-            // Calcular cantidad correctamente
-            const rawQuantity = (this.config.POSITION_SIZE_USD * this.config.LEVERAGE) / entryPrice;
-            const quantity = parseFloat(rawQuantity.toFixed(8)); // Máximo 8 decimales
+                entryPrice + tpDistance : 
+                entryPrice - tpDistance;
             
             // Configurar trade
             const tradeConfig = {
@@ -526,6 +531,7 @@ Responde SOLO en formato JSON:
             };
             
             this.logger.info(`💰 SCALP CONFIG: $${this.config.POSITION_SIZE_USD} USD, ${this.config.LEVERAGE}x leverage`);
+            this.logger.info(`💸 RIESGO: -$${this.config.SCALP_SL_USD} | GANANCIA: +$${this.config.SCALP_TP_USD}`);
             this.logger.info(`🛡️ SL: $${stopLoss.toFixed(6)} | TP: $${takeProfit.toFixed(6)}`);
             this.logger.info(`📊 Cantidad: ${quantity} ${symbol.replace('USDT', '')}`);
             this.logger.info(`📈 Entrada: $${entryPrice} | Dirección: ${isLong ? 'LONG' : 'SHORT'}`);
