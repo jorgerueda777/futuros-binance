@@ -166,7 +166,7 @@ class DefBinanceProfessionalBot {
             console.log(chalk.cyan(`📝 Texto: ${text.substring(0, 100)}...`));
             
             // Extraer símbolo
-            const symbol = this.extractSymbolFromText(text);
+            const symbol = await this.extractSymbolFromText(text);
             
             if (symbol) {
                 console.log(chalk.green(`🎯 Token detectado: ${symbol}`));
@@ -339,7 +339,7 @@ class DefBinanceProfessionalBot {
                 this.logger.info(`📝 Procesando texto: ${text.substring(0, 100)}...`);
                 
                 if (!symbol) {
-                    symbol = this.extractSymbolFromText(text);
+                    symbol = await this.extractSymbolFromText(text);
                 }
             }
 
@@ -385,18 +385,18 @@ class DefBinanceProfessionalBot {
         }
     }
 
-    extractSymbolFromText(text) {
+    async extractSymbolFromText(text) {
         try {
-            // Patrones para detectar símbolos de criptomonedas (incluyendo formato #AGTUSDT)
             const patterns = [
-                /#([A-Z]{2,10}USDT)/gi,          // #AGTUSDT, #BTCUSDT
-                /([A-Z]{2,10})USDT/gi,           // BTCUSDT, ETHUSDT
-                /([A-Z]{2,10})\/USDT/gi,         // BTC/USDT
-                /([A-Z]{2,10})\s*USDT/gi,        // BTC USDT
-                /\$([A-Z]{2,10})/gi,             // $BTC
-                /([A-Z]{2,10})\s*PERP/gi,        // BTC PERP
-                /([A-Z]{2,10})\s*futures?/gi,    // BTC futures
-                /signal[:\s]*([A-Z]{2,10})/gi,   // Signal: BTC
+                /#([A-Z]{2,10}USDT)/gi,          // #BTCUSDT
+                /([A-Z]{2,10}USDT)/gi,           // BTCUSDT
+                /#([A-Z]{2,10})\s/gi,            // #BTC 
+                /([A-Z]{2,10})\s*📈/gi,          // BTC 📈
+                /([A-Z]{2,10})\s*📉/gi,          // BTC 📉
+                /([A-Z]{2,10})\s*🟢/gi,          // BTC 🟢
+                /([A-Z]{2,10})\s*🔴/gi,          // BTC 🔴
+                /([A-Z]{2,10})\s*LONG/gi,        // BTC LONG
+                /([A-Z]{2,10})\s*SHORT/gi,       // BTC SHORT
                 /([A-Z]{2,10})\s*signal/gi       // BTC signal
             ];
 
@@ -405,14 +405,15 @@ class DefBinanceProfessionalBot {
                 if (matches && matches.length > 0) {
                     let symbol = matches[0].replace(/[^A-Z]/g, '');
                     
-                    // Si ya termina en USDT, usar tal como está
+                    // Si ya termina en USDT, verificar directamente
                     if (symbol.endsWith('USDT')) {
-                        return symbol;
-                    }
-                    
-                    // Filtrar símbolos conocidos
-                    if (this.isValidCryptoSymbol(symbol)) {
-                        return symbol + 'USDT';
+                        const isValid = await this.isValidCryptoSymbol(symbol);
+                        if (isValid) return symbol;
+                    } else {
+                        // Intentar con USDT añadido
+                        const symbolWithUSDT = symbol + 'USDT';
+                        const isValid = await this.isValidCryptoSymbol(symbolWithUSDT);
+                        if (isValid) return symbolWithUSDT;
                     }
                 }
             }
@@ -424,15 +425,34 @@ class DefBinanceProfessionalBot {
         }
     }
 
-    isValidCryptoSymbol(symbol) {
-        const validSymbols = [
-            'BTC', 'ETH', 'BNB', 'ADA', 'SOL', 'XRP', 'DOGE', 'MATIC', 'DOT', 'AVAX',
-            'LINK', 'UNI', 'ATOM', 'XLM', 'ALGO', 'VET', 'FIL', 'AAVE', 'SUSHI', 'COMP',
-            'LTC', 'BCH', 'ETC', 'TRX', 'XTZ', 'NEAR', 'LUNA', 'FTT', 'CRO', 'LEO',
-            'SHIB', 'WBTC', 'DAI', 'BUSD', 'USDC', 'APE', 'SAND', 'MANA', 'AXS', 'CHZ'
-        ];
-        
-        return validSymbols.includes(symbol) && symbol.length >= 2 && symbol.length <= 10;
+    // VALIDAR SÍMBOLO CON BINANCE API (NO LISTA FIJA)
+    async isValidCryptoSymbol(symbol) {
+        try {
+            // Validación básica de formato
+            if (!symbol || symbol.length < 2 || symbol.length > 15) {
+                return false;
+            }
+            
+            // Consultar Binance API para verificar si el símbolo existe
+            const response = await axios.get(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${symbol}`);
+            
+            if (response.status === 200 && response.data) {
+                this.logger.info(`✅ Símbolo válido encontrado en Binance: ${symbol}`);
+                return true;
+            }
+            
+            return false;
+            
+        } catch (error) {
+            // Si da error 400, el símbolo no existe
+            if (error.response && error.response.status === 400) {
+                this.logger.warn(`❌ Símbolo no existe en Binance: ${symbol}`);
+                return false;
+            }
+            
+            this.logger.error(`⚠️ Error verificando símbolo ${symbol}:`, error.message);
+            return false;
+        }
     }
 
     extractSignalInfo(text) {
@@ -445,9 +465,15 @@ class DefBinanceProfessionalBot {
                 leverage: null
             };
 
-            // Detectar dirección LONG/SHORT
-            if (/LONG/i.test(text)) info.direction = 'LONG';
-            if (/SHORT/i.test(text)) info.direction = 'SHORT';
+            // Detectar dirección LONG/SHORT (incluye FIBONACCI)
+            if (/LONG/i.test(text) || /🟢/i.test(text)) info.direction = 'LONG';
+            if (/SHORT/i.test(text) || /🔴/i.test(text)) info.direction = 'SHORT';
+            
+            // Detectar si es señal FIBONACCI
+            if (/FIBO/i.test(text)) {
+                info.type = 'FIBONACCI';
+                this.logger.info(`🔢 Señal FIBONACCI detectada`);
+            }
 
             // Extraer precios de entrada (mejorado)
             const entrySection = text.match(/ENTRADA[\s\S]*?(?=🚀|TP|Apalancamiento|STOP)/i);
