@@ -561,12 +561,12 @@ class AutoTrader {
                     
                     // Calcular SL/TP basado en configuración actual
                     const stopLoss = isLong ? 
-                        entryPrice * (1 - 0.0118) : // 1.18% SL
-                        entryPrice * (1 + 0.0118);
+                        entryPrice * (1 - 0.015) : // 1.5% SL
+                        entryPrice * (1 + 0.015);
                         
                     const takeProfit = isLong ? 
-                        entryPrice * (1 + 0.0295) : // 2.95% TP
-                        entryPrice * (1 - 0.0295);
+                        entryPrice * (1 + 0.0375) : // 3.75% TP
+                        entryPrice * (1 - 0.0375);
                     
                     this.logger.info(`🛡️ APLICANDO SL/TP de emergencia a ${symbol}`);
                     this.logger.info(`📊 Entry: $${entryPrice}, SL: $${stopLoss}, TP: $${takeProfit}`);

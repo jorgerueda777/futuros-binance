@@ -600,9 +600,9 @@ class DefBinanceProfessionalBot {
         }
     }
 
-    // 🛑 CALCULAR STOP LOSS DINÁMICO (PÉRDIDA 0.15 CENTAVOS)
+    // 🛑 CALCULAR STOP LOSS DINÁMICO (CONFIGURACIÓN ANTERIOR ÓPTIMA)
     calculateStopLoss(price, action) {
-        const percentage = 0.0118; // 1.18% stop loss (pérdida ~$0.15)
+        const percentage = 0.015; // 1.5% stop loss (pérdida ~$0.125)
         if (action.includes('LONG')) {
             return price * (1 - percentage);
         } else {
@@ -610,9 +610,9 @@ class DefBinanceProfessionalBot {
         }
     }
 
-    // 🎯 CALCULAR TAKE PROFIT DINÁMICO (GANANCIA 0.375 CENTAVOS)
+    // 🎯 CALCULAR TAKE PROFIT DINÁMICO (CONFIGURACIÓN ANTERIOR ÓPTIMA)
     calculateTakeProfit(price, action) {
-        const percentage = 0.0295; // 2.95% take profit (R:R 1:2.5)
+        const percentage = 0.0375; // 3.75% take profit (R:R 1:2.5)
         if (action.includes('LONG')) {
             return price * (1 + percentage);
         } else {
@@ -1613,7 +1613,7 @@ ${validation.reasoning}
 
 🛡️ <b>TODAS LAS POSICIONES VERIFICADAS</b>
 📊 SL/TP aplicados donde era necesario
-🔧 Configuración actual: SL=1.18%, TP=2.95%
+🔧 Configuración actual: SL=1.5%, TP=3.75%
 
 💡 <i>Revisa los logs para detalles específicos</i>
             `.trim();
