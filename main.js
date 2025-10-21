@@ -717,6 +717,9 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
                     this.logger.info(`🧠 Razonamiento IA: ${validation.reasoning}`);
                     this.logger.info(`🤖 EJECUTANDO AUTOMÁTICAMENTE (SmartMoney + IA): ${symbol} - ${finalDecision.confidence}%`);
                 
+                    // 📢 ENVIAR NOTIFICACIÓN DE COINCIDENCIA AL TELEGRAM
+                    await this.sendTradeExecutionMessage(symbol, finalDecision, validation, marketData);
+                
                     // 🚀 CÁLCULO INTELIGENTE DE POSICIÓN
                     const positionInfo = await this.calculateIntelligentPosition(symbol, marketData.price, 15);
                     
@@ -1448,6 +1451,48 @@ ${directionEmoji} <b>${symbol}</b>
             
         } catch (error) {
             await this.bot.sendMessage(chatId, `❌ Error obteniendo estadísticas: ${error.message}`);
+        }
+    }
+
+    // 📢 ENVIAR MENSAJE DE COINCIDENCIA IA + SMARTMONEY
+    async sendTradeExecutionMessage(symbol, finalDecision, validation, marketData) {
+        try {
+            const chatId = -1001959577386; // Tu grupo de señales
+            
+            const message = `
+🎯 <b>¡IA Y SMARTMONEY COINCIDEN!</b>
+
+🚀 <b>OPERACIÓN EJECUTADA AUTOMÁTICAMENTE</b>
+
+💰 <b>SÍMBOLO:</b> ${symbol}
+📊 <b>ACCIÓN:</b> ${finalDecision.action}
+💵 <b>PRECIO:</b> $${marketData.price}
+
+🧠 <b>ANÁLISIS DUAL:</b>
+✅ SmartMoney: ${finalDecision.confidence}%
+✅ IA Validadora: ${validation.confidence}%
+
+🎯 <b>RAZONAMIENTO IA:</b>
+${validation.reasoning}
+
+⚡ <b>CONFIGURACIÓN:</b>
+🛡️ Stop Loss: 1.5%
+🎯 Take Profit: 3.75%
+⚖️ Risk/Reward: 1:2.5
+💰 Capital: $0.85 USD
+
+🤖 <i>Trade ejecutado por doble validación automática</i>
+            `.trim();
+
+            await this.bot.sendMessage(chatId, message, {
+                parse_mode: 'HTML',
+                disable_web_page_preview: true
+            });
+
+            this.logger.info(`📢 Mensaje de coincidencia enviado: ${symbol} ${finalDecision.action}`);
+
+        } catch (error) {
+            this.logger.error(`❌ Error enviando mensaje de coincidencia:`, error.message);
         }
     }
 
