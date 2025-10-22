@@ -1912,27 +1912,27 @@ ${directionEmoji} <b>${symbol}</b>
 
     // 📊 ANÁLISIS EMA CROSS ESPECÍFICO
     async analyzeEmaCross(symbol, signalInfo) {
-    try {
-        this.logger.info(`📊 INICIANDO ANÁLISIS EMA CROSS: ${symbol} - ${signalInfo.emaFast}/${signalInfo.emaSlow} (${signalInfo.timeframe})`);
+        try {
+            this.logger.info(`📊 INICIANDO ANÁLISIS EMA CROSS: ${symbol} - ${signalInfo.emaFast}/${signalInfo.emaSlow} (${signalInfo.timeframe})`);
 
-        // Verificar que el símbolo existe en Futures antes de analizar EMA
-        const isValidFutures = await this.isValidCryptoSymbol(symbol);
-        if (!isValidFutures) {
-            this.logger.error(`❌ ${symbol} NO disponible en Binance Futures - Saltando análisis EMA CROSS`);
-            return;
-        }
+            // Verificar que el símbolo existe en Futures antes de analizar EMA
+            const isValidFutures = await this.isValidCryptoSymbol(symbol);
+            if (!isValidFutures) {
+                this.logger.error(`❌ ${symbol} NO disponible en Binance Futures - Saltando análisis EMA CROSS`);
+                return;
+            }
 
-        let klines = await this.binanceAPI.getFuturesKlines(symbol, signalInfo.timeframe || '5m', 250);
-        this.logger.info(`📊 Klines ${signalInfo.timeframe || '5m'} recibidos: ${klines?.length || 0} velas para ${symbol}`);
+            let klines = await this.binanceAPI.getFuturesKlines(symbol, signalInfo.timeframe || '5m', 250);
+            this.logger.info(`📊 Klines ${signalInfo.timeframe || '5m'} recibidos: ${klines?.length || 0} velas para ${symbol}`);
 
-        if (klines && klines.length > 0) {
-            this.logger.info(`📊 Primera vela ${signalInfo.timeframe || '5m'}: ${JSON.stringify(klines[0])}`);
-        }
+            if (klines && klines.length > 0) {
+                this.logger.info(`📊 Primera vela ${signalInfo.timeframe || '5m'}: ${JSON.stringify(klines[0])}`);
+            }
 
-        // Si no hay datos suficientes, intentar con timeframe mayor
-        if (!klines || klines.length < 200) {
-            this.logger.warn(`⚠️ Datos ${signalInfo.timeframe || '5m'} insuficientes (${klines?.length || 0}), intentando con 15m`);
-            klines = await this.binanceAPI.getFuturesKlines(symbol, '15m', 300);
+            // Si no hay datos suficientes, intentar con timeframe mayor
+            if (!klines || klines.length < 200) {
+                this.logger.warn(`⚠️ Datos ${signalInfo.timeframe || '5m'} insuficientes (${klines?.length || 0}), intentando con 15m`);
+                klines = await this.binanceAPI.getFuturesKlines(symbol, '15m', 300);
             this.logger.info(`📊 Klines 15m recibidos: ${klines?.length || 0} velas para ${symbol}`);
 
             if (!klines || klines.length < 200) {
