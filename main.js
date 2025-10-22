@@ -474,13 +474,33 @@ class DefBinanceProfessionalBot {
             };
 
             // Detectar dirección LONG/SHORT (incluye FIBONACCI)
-            if (/LONG/i.test(text) || /🟢/i.test(text)) info.direction = 'LONG';
-            if (/SHORT/i.test(text) || /🔴/i.test(text)) info.direction = 'SHORT';
+            if (/LONG/i.test(text) || /🟢/i.test(text)) {
+                info.direction = 'LONG';
+                this.logger.info(`🟢 DIRECCIÓN DETECTADA: LONG (ALCISTA)`);
+            }
+            if (/SHORT/i.test(text) || /🔴/i.test(text)) {
+                info.direction = 'SHORT';
+                this.logger.info(`🔴 DIRECCIÓN DETECTADA: SHORT (BAJISTA)`);
+            }
             
             // Detectar si es señal FIBONACCI
             if (/FIBO/i.test(text)) {
                 info.type = 'FIBONACCI';
-                this.logger.info(`🔢 Señal FIBONACCI detectada`);
+                info.timeframe = '4h'; // FIBONACCI siempre en 4H
+                this.logger.info(`🔢 Señal FIBONACCI detectada - Dirección: ${info.direction} - Timeframe: 4H`);
+                
+                // FORZAR dirección correcta para FIBONACCI
+                if (/LONG.*FIBO|FIBO.*LONG/i.test(text)) {
+                    info.direction = 'LONG';
+                    this.logger.info(`🔢 FIBONACCI LONG confirmado - ALCISTA`);
+                }
+                if (/SHORT.*FIBO|FIBO.*SHORT/i.test(text)) {
+                    info.direction = 'SHORT';
+                    this.logger.info(`🔢 FIBONACCI SHORT confirmado - BAJISTA`);
+                }
+                
+                // Marcar para análisis FIBONACCI específico
+                info.requiresFibonacci = true;
             }
 
             // Extraer precios de entrada (mejorado)
@@ -559,6 +579,11 @@ class DefBinanceProfessionalBot {
     async performUltraFastAnalysis(symbol, signalInfo, messageId) {
         try {
             this.logger.info(`⚡ ANÁLISIS ULTRA RÁPIDO: ${symbol} ${signalInfo.direction || 'DETECTANDO'}`);
+            
+            // Si es señal FIBONACCI, hacer análisis específico
+            if (signalInfo.requiresFibonacci) {
+                await this.analyzeFibonacci(symbol, signalInfo);
+            }
             
             const startTime = Date.now();
             
@@ -755,7 +780,17 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
             // ⚡ SMARTMONEY PRINCIPAL - IA ELIMINADA COMPLETAMENTE
             if (decision.confidence >= 80 && this.autoTrader && this.autoTrader.isEnabled()) {
                 
-                this.logger.info(`⚡ EJECUTANDO SmartMoney (RESPALDO): ${symbol} - ${decision.confidence}%`);
+                // IDENTIFICAR RAZÓN DE LA DECISIÓN
+                let decisionReason = '';
+                if (signalInfo.fibonacci && signalInfo.fibonacci.currentAnalysis.atOptimalLevel) {
+                    decisionReason = 'FIBONACCI';
+                    this.logger.info(`✅ DECISIÓN TOMADA POR FIBONACCI - Ejecutando trade`);
+                } else {
+                    decisionReason = 'SOPORTES Y RESISTENCIAS';
+                    this.logger.info(`✅ DECISIÓN TOMADA POR SOPORTES Y RESISTENCIAS - Ejecutando trade`);
+                }
+                
+                this.logger.info(`⚡ EJECUTANDO SmartMoney (${decisionReason}): ${symbol} - ${decision.confidence}%`);
                 
                 try {
                     const positionInfo = await this.calculateIntelligentPosition(symbol, marketData.price, 15);
@@ -1551,6 +1586,192 @@ ${directionEmoji} <b>${symbol}</b>
     }
 
     // MÉTODOS DE IA SCALPING ELIMINADOS COMPLETAMENTE
+
+    // 🔢 ANÁLISIS FIBONACCI ESPECÍFICO
+    async analyzeFibonacci(symbol, signalInfo) {
+        try {
+            this.logger.info(`🔢 INICIANDO ANÁLISIS FIBONACCI 4H: ${symbol}`);
+            
+            // Obtener datos de 4H para FIBONACCI
+            const klines4h = await this.binanceAPI.getFuturesKlines(symbol, '4h', 100);
+            if (!klines4h || klines4h.length < 50) {
+                this.logger.error(`❌ Datos 4H insuficientes para FIBONACCI`);
+                return;
+            }
+            
+            const prices = klines4h.map(k => parseFloat(k[4])); // Precios de cierre
+            const highs = klines4h.map(k => parseFloat(k[2]));  // Máximos
+            const lows = klines4h.map(k => parseFloat(k[3]));   // Mínimos
+            
+            // Encontrar swing high y swing low recientes
+            const recentHigh = Math.max(...highs.slice(-20));
+            const recentLow = Math.min(...lows.slice(-20));
+            const currentPrice = prices[prices.length - 1];
+            
+            // Calcular niveles de FIBONACCI
+            const fibLevels = this.calculateFibonacciLevels(recentHigh, recentLow, signalInfo.direction);
+            
+            // Determinar nivel más efectivo basado en datos históricos
+            const mostEffectiveLevel = await this.findMostEffectiveFibLevel(symbol, fibLevels, prices);
+            
+            // Analizar posición actual del precio
+            const priceAnalysis = this.analyzePricePosition(currentPrice, fibLevels, mostEffectiveLevel);
+            
+            this.logger.info(`🔢 FIBONACCI CALCULADO:`);
+            this.logger.info(`📊 Swing High: $${recentHigh.toFixed(6)}`);
+            this.logger.info(`📊 Swing Low: $${recentLow.toFixed(6)}`);
+            this.logger.info(`💰 Precio Actual: $${currentPrice.toFixed(6)}`);
+            this.logger.info(`🎯 Nivel más efectivo: ${mostEffectiveLevel.level} ($${mostEffectiveLevel.price.toFixed(6)})`);
+            this.logger.info(`📍 ${priceAnalysis.decision}`);
+            
+            // DECISIÓN FIBONACCI
+            if (priceAnalysis.atOptimalLevel) {
+                this.logger.info(`✅ DECISIÓN TOMADA POR FIBONACCI - Precio en zona óptima`);
+            } else {
+                this.logger.info(`⏳ ESPERAR - ${priceAnalysis.waitRecommendation}`);
+            }
+            
+            // Agregar información FIBONACCI a signalInfo
+            signalInfo.fibonacci = {
+                levels: fibLevels,
+                mostEffective: mostEffectiveLevel,
+                currentAnalysis: priceAnalysis,
+                swingHigh: recentHigh,
+                swingLow: recentLow
+            };
+            
+        } catch (error) {
+            this.logger.error(`❌ Error en análisis FIBONACCI:`, error.message);
+        }
+    }
+    
+    // 📊 CALCULAR NIVELES DE FIBONACCI
+    calculateFibonacciLevels(high, low, direction) {
+        const range = high - low;
+        
+        // Niveles estándar de Fibonacci
+        const levels = {
+            '0.0': direction === 'LONG' ? low : high,
+            '0.236': direction === 'LONG' ? low + (range * 0.236) : high - (range * 0.236),
+            '0.382': direction === 'LONG' ? low + (range * 0.382) : high - (range * 0.382),
+            '0.500': direction === 'LONG' ? low + (range * 0.500) : high - (range * 0.500),
+            '0.618': direction === 'LONG' ? low + (range * 0.618) : high - (range * 0.618),
+            '0.786': direction === 'LONG' ? low + (range * 0.786) : high - (range * 0.786),
+            '1.0': direction === 'LONG' ? high : low
+        };
+        
+        return levels;
+    }
+    
+    // 🎯 ENCONTRAR NIVEL MÁS EFECTIVO
+    async findMostEffectiveFibLevel(symbol, fibLevels, historicalPrices) {
+        try {
+            // Analizar rebotes históricos en cada nivel
+            const levelEffectiveness = {};
+            
+            Object.keys(fibLevels).forEach(level => {
+                const price = fibLevels[level];
+                let bounces = 0;
+                
+                // Contar cuántas veces el precio rebotó en este nivel (±0.5%)
+                for (let i = 1; i < historicalPrices.length - 1; i++) {
+                    const prevPrice = historicalPrices[i - 1];
+                    const currentPrice = historicalPrices[i];
+                    const nextPrice = historicalPrices[i + 1];
+                    
+                    const tolerance = price * 0.005; // 0.5% tolerancia
+                    
+                    if (Math.abs(currentPrice - price) <= tolerance) {
+                        // Verificar si hubo rebote
+                        if ((prevPrice > price && nextPrice > price) || (prevPrice < price && nextPrice < price)) {
+                            bounces++;
+                        }
+                    }
+                }
+                
+                levelEffectiveness[level] = {
+                    level: level,
+                    price: price,
+                    bounces: bounces,
+                    effectiveness: bounces / historicalPrices.length * 100
+                };
+            });
+            
+            // Encontrar el nivel más efectivo
+            let mostEffective = { level: '0.618', price: fibLevels['0.618'], bounces: 0, effectiveness: 0 };
+            
+            Object.values(levelEffectiveness).forEach(levelData => {
+                if (levelData.bounces > mostEffective.bounces) {
+                    mostEffective = levelData;
+                }
+            });
+            
+            // Si no hay datos suficientes, usar 0.618 como default (nivel dorado)
+            if (mostEffective.bounces === 0) {
+                mostEffective = {
+                    level: '0.618',
+                    price: fibLevels['0.618'],
+                    bounces: 0,
+                    effectiveness: 61.8,
+                    note: 'Nivel dorado (default)'
+                };
+            }
+            
+            return mostEffective;
+            
+        } catch (error) {
+            // Fallback al nivel dorado
+            return {
+                level: '0.618',
+                price: fibLevels['0.618'],
+                bounces: 0,
+                effectiveness: 61.8,
+                note: 'Nivel dorado (fallback)'
+            };
+        }
+    }
+    
+    // 📍 ANALIZAR POSICIÓN DEL PRECIO
+    analyzePricePosition(currentPrice, fibLevels, mostEffectiveLevel) {
+        const optimalPrice = mostEffectiveLevel.price;
+        const optimalLevel = mostEffectiveLevel.level;
+        
+        // Calcular distancia al nivel óptimo
+        const distance = Math.abs(currentPrice - optimalPrice);
+        const percentDistance = (distance / currentPrice) * 100;
+        
+        let decision = '';
+        let atOptimalLevel = false;
+        let waitRecommendation = '';
+        
+        if (percentDistance < 0.5) { // Menos del 0.5% = está en el nivel
+            atOptimalLevel = true;
+            decision = `PRECIO EN NIVEL ÓPTIMO ${optimalLevel} - EJECUTAR TRADE`;
+        } else {
+            atOptimalLevel = false;
+            
+            if (currentPrice > optimalPrice) {
+                // Precio arriba del nivel óptimo
+                decision = `Precio actual $${currentPrice.toFixed(6)} ARRIBA del nivel ${optimalLevel} ($${optimalPrice.toFixed(6)})`;
+                waitRecommendation = `Precio actual $${currentPrice.toFixed(6)}, nivel ${optimalLevel} en $${optimalPrice.toFixed(6)} - PONER ORDEN LIMIT`;
+            } else {
+                // Precio abajo del nivel óptimo
+                decision = `Precio actual $${currentPrice.toFixed(6)} ABAJO del nivel ${optimalLevel} ($${optimalPrice.toFixed(6)})`;
+                waitRecommendation = `Precio actual $${currentPrice.toFixed(6)}, nivel ${optimalLevel} en $${optimalPrice.toFixed(6)} - PONER ORDEN LIMIT`;
+            }
+        }
+        
+        return {
+            decision: decision,
+            atOptimalLevel: atOptimalLevel,
+            waitRecommendation: waitRecommendation,
+            optimalPrice: optimalPrice,
+            optimalLevel: optimalLevel,
+            currentPrice: currentPrice,
+            distance: distance,
+            percentDistance: percentDistance
+        };
+    }
 
     // TODOS LOS MÉTODOS DE IA SCALPING ELIMINADOS
 }
