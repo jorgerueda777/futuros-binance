@@ -389,6 +389,9 @@ class DefBinanceProfessionalBot {
                 /#([0-9A-Z]{2,10}USDT)\s+SHORT/gi, // #KAVAUSDT SHORT
                 /#([0-9A-Z]{2,10})\s+LONG/gi,    // #KAVA LONG
                 /#([0-9A-Z]{2,10})\s+SHORT/gi,   // #KAVA SHORT
+                /EMA\s+CROSS.*#([0-9A-Z]{2,15}USDT)/gi, // EMA CROSS #AKEUSDT
+                /ALERTAS.*EMA.*#([0-9A-Z]{2,15}USDT)/gi, // ALERTAS EMA CROSS #AKEUSDT
+                /#([0-9A-Z]{2,15}USDT).*EMA/gi,  // #AKEUSDT EMA
                 /([0-9A-Z]{2,10})\s*📈/gi,       // KAVA 📈
                 /([0-9A-Z]{2,10})\s*📉/gi,       // KAVA 📉
                 /([0-9A-Z]{2,10})\s*🟢/gi,       // KAVA 🟢
@@ -502,6 +505,33 @@ class DefBinanceProfessionalBot {
                 // Marcar para análisis FIBONACCI específico
                 info.requiresFibonacci = true;
             }
+            
+            // Detectar si es señal EMA CROSS
+            if (/EMA.*CROSS|ALERTAS.*EMA/i.test(text)) {
+                info.type = 'EMA_CROSS';
+                
+                // Extraer timeframe (m5, m15, h1, etc.)
+                const timeframeMatch = text.match(/\(([mh]\d+)\)/i);
+                if (timeframeMatch) {
+                    info.timeframe = timeframeMatch[1].toLowerCase();
+                    this.logger.info(`📊 Señal EMA CROSS detectada - Timeframe: ${info.timeframe}`);
+                } else {
+                    info.timeframe = '5m'; // Default para EMA CROSS
+                    this.logger.info(`📊 Señal EMA CROSS detectada - Timeframe: 5m (default)`);
+                }
+                
+                // Extraer EMAs (50/200, 20/50, etc.)
+                const emaMatch = text.match(/EMA.*?(\d+)\/(\d+)/i);
+                if (emaMatch) {
+                    info.emaFast = parseInt(emaMatch[1]);
+                    info.emaSlow = parseInt(emaMatch[2]);
+                    this.logger.info(`📈 EMAs detectadas: ${info.emaFast}/${info.emaSlow}`);
+                }
+                
+                // Para EMA CROSS, necesitamos determinar la dirección analizando el mercado
+                info.requiresEmaAnalysis = true;
+                this.logger.info(`📊 EMA CROSS requiere análisis de dirección`);
+            }
 
             // Extraer precios de entrada (mejorado)
             const entrySection = text.match(/ENTRADA[\s\S]*?(?=🚀|TP|Apalancamiento|STOP)/i);
@@ -583,6 +613,11 @@ class DefBinanceProfessionalBot {
             // Si es señal FIBONACCI, hacer análisis específico
             if (signalInfo.requiresFibonacci) {
                 await this.analyzeFibonacci(symbol, signalInfo);
+            }
+            
+            // Si es señal EMA CROSS, hacer análisis específico
+            if (signalInfo.requiresEmaAnalysis) {
+                await this.analyzeEmaCross(symbol, signalInfo);
             }
             
             const startTime = Date.now();
@@ -785,6 +820,9 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
                 if (signalInfo.fibonacci && signalInfo.fibonacci.currentAnalysis.atOptimalLevel) {
                     decisionReason = 'FIBONACCI';
                     this.logger.info(`✅ DECISIÓN TOMADA POR FIBONACCI - Ejecutando trade`);
+                } else if (signalInfo.emaCross && signalInfo.emaCross.confidence >= 70) {
+                    decisionReason = 'EMA CROSS';
+                    this.logger.info(`✅ DECISIÓN TOMADA POR EMA CROSS - Ejecutando trade`);
                 } else {
                     decisionReason = 'SOPORTES Y RESISTENCIAS';
                     this.logger.info(`✅ DECISIÓN TOMADA POR SOPORTES Y RESISTENCIAS - Ejecutando trade`);
@@ -1599,14 +1637,26 @@ ${directionEmoji} <b>${symbol}</b>
                 return;
             }
             
-            const prices = klines4h.map(k => parseFloat(k[4])); // Precios de cierre
-            const highs = klines4h.map(k => parseFloat(k[2]));  // Máximos
-            const lows = klines4h.map(k => parseFloat(k[3]));   // Mínimos
+            const prices = klines4h.map(k => parseFloat(k[4])).filter(p => !isNaN(p)); // Precios de cierre
+            const highs = klines4h.map(k => parseFloat(k[2])).filter(p => !isNaN(p));  // Máximos
+            const lows = klines4h.map(k => parseFloat(k[3])).filter(p => !isNaN(p));   // Mínimos
+            
+            // Validar que tenemos datos válidos
+            if (prices.length === 0 || highs.length === 0 || lows.length === 0) {
+                this.logger.error(`❌ Datos 4H inválidos para FIBONACCI - precios: ${prices.length}, highs: ${highs.length}, lows: ${lows.length}`);
+                return;
+            }
             
             // Encontrar swing high y swing low recientes
             const recentHigh = Math.max(...highs.slice(-20));
             const recentLow = Math.min(...lows.slice(-20));
             const currentPrice = prices[prices.length - 1];
+            
+            // Validar que los valores no son NaN
+            if (isNaN(recentHigh) || isNaN(recentLow) || isNaN(currentPrice)) {
+                this.logger.error(`❌ Valores FIBONACCI inválidos - High: ${recentHigh}, Low: ${recentLow}, Current: ${currentPrice}`);
+                return;
+            }
             
             // Calcular niveles de FIBONACCI
             const fibLevels = this.calculateFibonacciLevels(recentHigh, recentLow, signalInfo.direction);
@@ -1647,6 +1697,18 @@ ${directionEmoji} <b>${symbol}</b>
     
     // 📊 CALCULAR NIVELES DE FIBONACCI
     calculateFibonacciLevels(high, low, direction) {
+        // Validar inputs
+        if (isNaN(high) || isNaN(low) || high <= 0 || low <= 0) {
+            this.logger.error(`❌ Inputs FIBONACCI inválidos - High: ${high}, Low: ${low}`);
+            return {};
+        }
+        
+        // Asegurar que high > low
+        if (high <= low) {
+            this.logger.error(`❌ High debe ser mayor que Low - High: ${high}, Low: ${low}`);
+            return {};
+        }
+        
         const range = high - low;
         
         // Niveles estándar de Fibonacci
@@ -1659,6 +1721,14 @@ ${directionEmoji} <b>${symbol}</b>
             '0.786': direction === 'LONG' ? low + (range * 0.786) : high - (range * 0.786),
             '1.0': direction === 'LONG' ? high : low
         };
+        
+        // Validar que todos los niveles son números válidos
+        for (const [level, price] of Object.entries(levels)) {
+            if (isNaN(price)) {
+                this.logger.error(`❌ Nivel FIBONACCI ${level} inválido: ${price}`);
+                return {};
+            }
+        }
         
         return levels;
     }
@@ -1771,6 +1841,143 @@ ${directionEmoji} <b>${symbol}</b>
             distance: distance,
             percentDistance: percentDistance
         };
+    }
+
+    // 📊 ANÁLISIS EMA CROSS ESPECÍFICO
+    async analyzeEmaCross(symbol, signalInfo) {
+        try {
+            this.logger.info(`📊 INICIANDO ANÁLISIS EMA CROSS: ${symbol} - ${signalInfo.emaFast}/${signalInfo.emaSlow} (${signalInfo.timeframe})`);
+            
+            // Obtener datos del timeframe específico
+            const timeframe = signalInfo.timeframe || '5m';
+            const klines = await this.binanceAPI.getFuturesKlines(symbol, timeframe, 250);
+            
+            if (!klines || klines.length < 200) {
+                this.logger.error(`❌ Datos ${timeframe} insuficientes para EMA CROSS`);
+                return;
+            }
+            
+            const prices = klines.map(k => parseFloat(k[4])); // Precios de cierre
+            const currentPrice = prices[prices.length - 1];
+            
+            // Calcular EMAs
+            const emaFast = this.calculateEMA(prices, signalInfo.emaFast || 50);
+            const emaSlow = this.calculateEMA(prices, signalInfo.emaSlow || 200);
+            
+            const currentEmaFast = emaFast[emaFast.length - 1];
+            const currentEmaSlow = emaSlow[emaSlow.length - 1];
+            const prevEmaFast = emaFast[emaFast.length - 2];
+            const prevEmaSlow = emaSlow[emaSlow.length - 2];
+            
+            // Determinar tipo de cruce
+            let crossType = 'NONE';
+            let direction = null;
+            
+            if (prevEmaFast <= prevEmaSlow && currentEmaFast > currentEmaSlow) {
+                crossType = 'GOLDEN_CROSS';
+                direction = 'LONG';
+                this.logger.info(`🟢 GOLDEN CROSS detectado - EMA ${signalInfo.emaFast} cruza ARRIBA de EMA ${signalInfo.emaSlow}`);
+            } else if (prevEmaFast >= prevEmaSlow && currentEmaFast < currentEmaSlow) {
+                crossType = 'DEATH_CROSS';
+                direction = 'SHORT';
+                this.logger.info(`🔴 DEATH CROSS detectado - EMA ${signalInfo.emaFast} cruza ABAJO de EMA ${signalInfo.emaSlow}`);
+            } else if (currentEmaFast > currentEmaSlow) {
+                crossType = 'ABOVE';
+                direction = 'LONG';
+                this.logger.info(`📈 EMA ${signalInfo.emaFast} está ARRIBA de EMA ${signalInfo.emaSlow} - Tendencia ALCISTA`);
+            } else {
+                crossType = 'BELOW';
+                direction = 'SHORT';
+                this.logger.info(`📉 EMA ${signalInfo.emaFast} está ABAJO de EMA ${signalInfo.emaSlow} - Tendencia BAJISTA`);
+            }
+            
+            // Calcular fuerza del cruce
+            const separation = Math.abs(currentEmaFast - currentEmaSlow);
+            const separationPercent = (separation / currentPrice) * 100;
+            
+            // Determinar confianza basada en el cruce
+            let confidence = 50; // Base
+            
+            if (crossType === 'GOLDEN_CROSS' || crossType === 'DEATH_CROSS') {
+                confidence += 25; // Cruce reciente es más fuerte
+                this.logger.info(`🔥 CRUCE RECIENTE detectado - +25% confianza`);
+            }
+            
+            if (separationPercent > 0.5) {
+                confidence += 15; // Separación significativa
+                this.logger.info(`📊 Separación significativa ${separationPercent.toFixed(2)}% - +15% confianza`);
+            }
+            
+            // Verificar tendencia consistente (últimas 5 velas)
+            const recentEmaFast = emaFast.slice(-5);
+            const recentEmaSlow = emaSlow.slice(-5);
+            let consistentTrend = true;
+            
+            for (let i = 1; i < recentEmaFast.length; i++) {
+                if (direction === 'LONG' && recentEmaFast[i] <= recentEmaSlow[i]) {
+                    consistentTrend = false;
+                    break;
+                }
+                if (direction === 'SHORT' && recentEmaFast[i] >= recentEmaSlow[i]) {
+                    consistentTrend = false;
+                    break;
+                }
+            }
+            
+            if (consistentTrend) {
+                confidence += 10;
+                this.logger.info(`✅ Tendencia consistente - +10% confianza`);
+            }
+            
+            this.logger.info(`📊 EMA CROSS CALCULADO:`);
+            this.logger.info(`📈 EMA ${signalInfo.emaFast}: $${currentEmaFast.toFixed(6)}`);
+            this.logger.info(`📉 EMA ${signalInfo.emaSlow}: $${currentEmaSlow.toFixed(6)}`);
+            this.logger.info(`💰 Precio Actual: $${currentPrice.toFixed(6)}`);
+            this.logger.info(`🎯 Tipo de cruce: ${crossType}`);
+            this.logger.info(`📊 Separación: ${separationPercent.toFixed(2)}%`);
+            this.logger.info(`🔥 Confianza EMA: ${confidence}%`);
+            
+            // DECISIÓN EMA CROSS
+            if (confidence >= 70) {
+                this.logger.info(`✅ DECISIÓN TOMADA POR EMA CROSS - ${direction} con ${confidence}% confianza`);
+            } else {
+                this.logger.info(`⏳ EMA CROSS débil - Confianza ${confidence}% < 70%`);
+            }
+            
+            // Agregar información EMA CROSS a signalInfo
+            signalInfo.direction = direction; // Establecer dirección basada en EMA
+            signalInfo.emaCross = {
+                type: crossType,
+                emaFast: currentEmaFast,
+                emaSlow: currentEmaSlow,
+                separation: separationPercent,
+                confidence: confidence,
+                timeframe: timeframe
+            };
+            
+        } catch (error) {
+            this.logger.error(`❌ Error en análisis EMA CROSS:`, error.message);
+        }
+    }
+    
+    // 📈 CALCULAR EMA (Exponential Moving Average)
+    calculateEMA(prices, period) {
+        const ema = [];
+        const multiplier = 2 / (period + 1);
+        
+        // Primera EMA es SMA
+        let sum = 0;
+        for (let i = 0; i < period; i++) {
+            sum += prices[i];
+        }
+        ema[period - 1] = sum / period;
+        
+        // Calcular EMAs restantes
+        for (let i = period; i < prices.length; i++) {
+            ema[i] = (prices[i] * multiplier) + (ema[i - 1] * (1 - multiplier));
+        }
+        
+        return ema;
     }
 
     // TODOS LOS MÉTODOS DE IA SCALPING ELIMINADOS
