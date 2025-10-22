@@ -1201,7 +1201,7 @@ Apalancamiento máximo 10 X
         this.logger.info('🚀 Bot DefBinance Professional iniciado correctamente');
         this.logger.info('📊 Escuchando canales fuente...');
         this.logger.info('⚡ Sistema SmartMoney activo (80%+)');
-        this.logger.info('⚡ Solo SmartMoney activo (IA eliminada)');
+        this.logger.info('⚡ Solo SmartMoney activo (IA eliminada) + FIBONACCI 4H');
         
         // Limpiar señales procesadas cada hora
         setInterval(() => {
