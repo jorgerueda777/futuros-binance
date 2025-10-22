@@ -1631,11 +1631,36 @@ ${directionEmoji} <b>${symbol}</b>
             this.logger.info(`🔢 INICIANDO ANÁLISIS FIBONACCI 4H: ${symbol}`);
             
             // Obtener datos de 4H para FIBONACCI
-            const klines4h = await this.binanceAPI.getFuturesKlines(symbol, '4h', 100);
+            let klines4h = await this.binanceAPI.getFuturesKlines(symbol, '4h', 100);
+            this.logger.info(`📊 Klines 4H recibidos: ${klines4h?.length || 0} velas para ${symbol}`);
+            
+            if (klines4h && klines4h.length > 0) {
+                this.logger.info(`📊 Primera vela 4H: ${JSON.stringify(klines4h[0])}`);
+            }
+            
+            // Si no hay datos 4H suficientes, intentar con 1H
             if (!klines4h || klines4h.length < 50) {
-                this.logger.error(`❌ Datos 4H insuficientes para FIBONACCI`);
+                this.logger.warn(`⚠️ Datos 4H insuficientes (${klines4h?.length || 0}), intentando con 1H`);
+                klines4h = await this.binanceAPI.getFuturesKlines(symbol, '1h', 200);
+                this.logger.info(`📊 Klines 1H recibidos: ${klines4h?.length || 0} velas para ${symbol}`);
+                
+                if (!klines4h || klines4h.length < 50) {
+                    this.logger.error(`❌ Datos insuficientes para FIBONACCI - 4H: ${klines4h?.length || 0}`);
+                    return;
+                }
+            }
+            
+            // Validar que los datos no estén vacíos o corruptos
+            const validKlines = klines4h.filter(k => k && k.length >= 6 && !isNaN(parseFloat(k[4])));
+            this.logger.info(`📊 Velas válidas: ${validKlines.length}/${klines4h.length} para ${symbol}`);
+            
+            if (validKlines.length < 20) {
+                this.logger.error(`❌ Muy pocas velas válidas para FIBONACCI: ${validKlines.length}`);
                 return;
             }
+            
+            // Usar solo velas válidas
+            klines4h = validKlines;
             
             const prices = klines4h.map(k => parseFloat(k[4])).filter(p => !isNaN(p)); // Precios de cierre
             const highs = klines4h.map(k => parseFloat(k[2])).filter(p => !isNaN(p));  // Máximos
@@ -1843,19 +1868,89 @@ ${directionEmoji} <b>${symbol}</b>
         };
     }
 
+    // 📍 ANALIZAR POSICIÓN DEL PRECIO
+    analyzePricePosition(currentPrice, fibLevels, mostEffectiveLevel) {
+    const optimalPrice = mostEffectiveLevel.price;
+    const optimalLevel = mostEffectiveLevel.level;
+
+    // Calcular distancia al nivel óptimo
+    const distance = Math.abs(currentPrice - optimalPrice);
+    const percentDistance = (distance / currentPrice) * 100;
+
+    let decision = '';
+    let atOptimalLevel = false;
+    let waitRecommendation = '';
+
+    if (percentDistance < 0.5) { // Menos del 0.5% = está en el nivel
+        atOptimalLevel = true;
+        decision = `PRECIO EN NIVEL ÓPTIMO ${optimalLevel} - EJECUTAR TRADE`;
+    } else {
+        atOptimalLevel = false;
+
+        if (currentPrice > optimalPrice) {
+            // Precio arriba del nivel óptimo
+            decision = `Precio actual $${currentPrice.toFixed(6)} ARRIBA del nivel ${optimalLevel} ($${optimalPrice.toFixed(6)})`;
+            waitRecommendation = `Precio actual $${currentPrice.toFixed(6)}, nivel ${optimalLevel} en $${optimalPrice.toFixed(6)} - PONER ORDEN LIMIT`;
+        } else {
+            // Precio abajo del nivel óptimo
+            decision = `Precio actual $${currentPrice.toFixed(6)} ABAJO del nivel ${optimalLevel} ($${optimalPrice.toFixed(6)})`;
+            waitRecommendation = `Precio actual $${currentPrice.toFixed(6)}, nivel ${optimalLevel} en $${optimalPrice.toFixed(6)} - PONER ORDEN LIMIT`;
+        }
+    }
+
+    return {
+        decision: decision,
+        atOptimalLevel: atOptimalLevel,
+        waitRecommendation: waitRecommendation,
+        optimalPrice: optimalPrice,
+        optimalLevel: optimalLevel,
+        currentPrice: currentPrice,
+        distance: distance,
+        percentDistance: percentDistance
+    };
+    }
+
     // 📊 ANÁLISIS EMA CROSS ESPECÍFICO
     async analyzeEmaCross(symbol, signalInfo) {
-        try {
-            this.logger.info(`📊 INICIANDO ANÁLISIS EMA CROSS: ${symbol} - ${signalInfo.emaFast}/${signalInfo.emaSlow} (${signalInfo.timeframe})`);
-            
-            // Obtener datos del timeframe específico
-            const timeframe = signalInfo.timeframe || '5m';
-            const klines = await this.binanceAPI.getFuturesKlines(symbol, timeframe, 250);
-            
+    try {
+        this.logger.info(`📊 INICIANDO ANÁLISIS EMA CROSS: ${symbol} - ${signalInfo.emaFast}/${signalInfo.emaSlow} (${signalInfo.timeframe})`);
+
+        // Verificar que el símbolo existe en Futures antes de analizar EMA
+        const isValidFutures = await this.isValidCryptoSymbol(symbol);
+        if (!isValidFutures) {
+            this.logger.error(`❌ ${symbol} NO disponible en Binance Futures - Saltando análisis EMA CROSS`);
+            return;
+        }
+
+        let klines = await this.binanceAPI.getFuturesKlines(symbol, signalInfo.timeframe || '5m', 250);
+        this.logger.info(`📊 Klines ${signalInfo.timeframe || '5m'} recibidos: ${klines?.length || 0} velas para ${symbol}`);
+
+        if (klines && klines.length > 0) {
+            this.logger.info(`📊 Primera vela ${signalInfo.timeframe || '5m'}: ${JSON.stringify(klines[0])}`);
+        }
+
+        // Si no hay datos suficientes, intentar con timeframe mayor
+        if (!klines || klines.length < 200) {
+            this.logger.warn(`⚠️ Datos ${signalInfo.timeframe || '5m'} insuficientes (${klines?.length || 0}), intentando con 15m`);
+            klines = await this.binanceAPI.getFuturesKlines(symbol, '15m', 300);
+            this.logger.info(`📊 Klines 15m recibidos: ${klines?.length || 0} velas para ${symbol}`);
+
             if (!klines || klines.length < 200) {
-                this.logger.error(`❌ Datos ${timeframe} insuficientes para EMA CROSS`);
+                this.logger.error(`❌ Datos insuficientes para EMA CROSS - ${signalInfo.timeframe || '5m'}: ${klines?.length || 0}`);
                 return;
             }
+            
+            // Validar que los datos no estén vacíos o corruptos
+            const validKlines = klines.filter(k => k && k.length >= 6 && !isNaN(parseFloat(k[4])));
+            this.logger.info(`📊 Velas válidas EMA: ${validKlines.length}/${klines.length} para ${symbol}`);
+            
+            if (validKlines.length < 100) {
+                this.logger.error(`❌ Muy pocas velas válidas para EMA CROSS: ${validKlines.length}`);
+                return;
+            }
+            
+            // Usar solo velas válidas
+            klines = validKlines;
             
             const prices = klines.map(k => parseFloat(k[4])); // Precios de cierre
             const currentPrice = prices[prices.length - 1];
