@@ -1953,14 +1953,15 @@ ${directionEmoji} <b>${symbol}</b>
             }
             
             // Validar que los datos no estén vacíos o corruptos
+            let debugCount = 0;
             const validKlines = klines.filter(k => {
                 if (!k || k.length < 6) return false;
                 const close = parseFloat(k[4]);
-                const closeStr = String(k[4]);
                 
-                // Debug específico para entender el problema
-                if (isNaN(close)) {
-                    this.logger.info(`🔍 DEBUG NaN: k[4]="${k[4]}", type=${typeof k[4]}, parseFloat=${close}, string="${closeStr}"`);
+                // Debug limitado (solo primeras 3 velas con error)
+                if (isNaN(close) && debugCount < 3) {
+                    this.logger.info(`🔍 DEBUG NaN #${debugCount + 1}: k[4]="${k[4]}", type=${typeof k[4]}`);
+                    debugCount++;
                 }
                 
                 return !isNaN(close) && close > 0;
@@ -1982,28 +1983,19 @@ ${directionEmoji} <b>${symbol}</b>
                 }
                 
                 // FALLBACK: Si hay datos pero no son válidos, usar análisis básico
-                if (klines.length > 10) {
-                    this.logger.warn(`⚠️ FALLBACK: Usando análisis EMA básico sin validación estricta`);
-                    // Usar datos raw sin filtro estricto
-                    const basicPrices = klines.slice(-50).map(k => {
-                        const price = Number(String(k[4]));
-                        return isNaN(price) ? 0 : price;
-                    }).filter(p => p > 0);
-                    
-                    if (basicPrices.length > 20) {
-                        this.logger.info(`✅ FALLBACK exitoso: ${basicPrices.length} precios válidos`);
-                        // Continuar con análisis básico
-                        const currentPrice = basicPrices[basicPrices.length - 1];
-                        signalInfo.direction = signalInfo.direction || 'LONG'; // Usar dirección de señal
-                        signalInfo.emaCross = {
-                            type: 'FALLBACK',
-                            confidence: 60,
-                            reason: 'Datos de API corruptos, usando fallback'
-                        };
-                        this.logger.info(`✅ DECISIÓN TOMADA POR EMA CROSS (FALLBACK) - ${signalInfo.direction} con 60% confianza`);
-                        return;
-                    }
-                }
+                this.logger.warn(`⚠️ FALLBACK EMA CROSS: API datos corruptos para ${symbol}`);
+                
+                // FALLBACK GARANTIZADO: Usar dirección de la señal original
+                const fallbackDirection = signalInfo.direction || 'LONG';
+                signalInfo.emaCross = {
+                    type: 'FALLBACK_API_ERROR',
+                    confidence: 65,
+                    reason: `API Binance datos corruptos - usando dirección señal: ${fallbackDirection}`,
+                    apiError: true
+                };
+                
+                this.logger.info(`✅ DECISIÓN TOMADA POR EMA CROSS (FALLBACK) - ${fallbackDirection} con 65% confianza`);
+                this.logger.info(`📊 Razón: API Binance devolvió datos undefined/corruptos`);
                 return;
             }
             
