@@ -1933,11 +1933,12 @@ ${directionEmoji} <b>${symbol}</b>
             if (!klines || klines.length < 200) {
                 this.logger.warn(`⚠️ Datos ${signalInfo.timeframe || '5m'} insuficientes (${klines?.length || 0}), intentando con 15m`);
                 klines = await this.binanceAPI.getFuturesKlines(symbol, '15m', 300);
-            this.logger.info(`📊 Klines 15m recibidos: ${klines?.length || 0} velas para ${symbol}`);
+                this.logger.info(`📊 Klines 15m recibidos: ${klines?.length || 0} velas para ${symbol}`);
 
-            if (!klines || klines.length < 200) {
-                this.logger.error(`❌ Datos insuficientes para EMA CROSS - ${signalInfo.timeframe || '5m'}: ${klines?.length || 0}`);
-                return;
+                if (!klines || klines.length < 200) {
+                    this.logger.error(`❌ Datos insuficientes para EMA CROSS - ${signalInfo.timeframe || '5m'}: ${klines?.length || 0}`);
+                    return;
+                }
             }
             
             // Validar que los datos no estén vacíos o corruptos
