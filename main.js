@@ -380,33 +380,48 @@ class DefBinanceProfessionalBot {
 
     async extractSymbolFromText(text) {
         try {
+            this.logger.info(`🔍 DEBUG: Analizando texto para extraer símbolo: "${text.substring(0, 200)}"`);
+            
             const patterns = [
-                /#([0-9A-Z]{2,15}USDT)/gi,       // #2ZUSDT, #1000PEPEUSDT
-                /([0-9A-Z]{2,15}USDT)/gi,        // 2ZUSDT, 1000PEPEUSDT
-                /#([0-9A-Z]{2,10})\s/gi,         // #2Z, #1000PEPE
-                /([0-9A-Z]{2,10})\s*📈/gi,       // 2Z 📈
-                /([0-9A-Z]{2,10})\s*📉/gi,       // 2Z 📉
-                /([0-9A-Z]{2,10})\s*🟢/gi,       // 2Z 🟢
-                /([0-9A-Z]{2,10})\s*🔴/gi,       // 2Z 🔴
-                /([0-9A-Z]{2,10})\s*LONG/gi,     // 2Z LONG
-                /([0-9A-Z]{2,10})\s*SHORT/gi,    // 2Z SHORT
-                /([0-9A-Z]{2,10})\s*signal/gi    // 2Z signal
+                /#([0-9A-Z]{2,15}USDT)/gi,       // #KAVAUSDT, #1000PEPEUSDT
+                /([0-9A-Z]{2,15}USDT)/gi,        // KAVAUSDT, 1000PEPEUSDT
+                /#([0-9A-Z]{2,10}USDT)\s+LONG/gi, // #KAVAUSDT LONG
+                /#([0-9A-Z]{2,10}USDT)\s+SHORT/gi, // #KAVAUSDT SHORT
+                /#([0-9A-Z]{2,10})\s+LONG/gi,    // #KAVA LONG
+                /#([0-9A-Z]{2,10})\s+SHORT/gi,   // #KAVA SHORT
+                /([0-9A-Z]{2,10})\s*📈/gi,       // KAVA 📈
+                /([0-9A-Z]{2,10})\s*📉/gi,       // KAVA 📉
+                /([0-9A-Z]{2,10})\s*🟢/gi,       // KAVA 🟢
+                /([0-9A-Z]{2,10})\s*🔴/gi,       // KAVA 🔴
+                /([0-9A-Z]{2,10})\s*LONG/gi,     // KAVA LONG
+                /([0-9A-Z]{2,10})\s*SHORT/gi,    // KAVA SHORT
+                /([0-9A-Z]{2,10})\s*signal/gi    // KAVA signal
             ];
 
-            for (const pattern of patterns) {
+            for (let i = 0; i < patterns.length; i++) {
+                const pattern = patterns[i];
                 const matches = text.match(pattern);
                 if (matches && matches.length > 0) {
                     let symbol = matches[0].replace(/[^0-9A-Z]/g, '');
+                    this.logger.info(`🎯 DEBUG: Patrón ${i+1} encontró: "${matches[0]}" → símbolo: "${symbol}"`);
                     
                     // Si ya termina en USDT, verificar directamente
                     if (symbol.endsWith('USDT')) {
+                        this.logger.info(`🔍 DEBUG: Verificando símbolo completo: ${symbol}`);
                         const isValid = await this.isValidCryptoSymbol(symbol);
-                        if (isValid) return symbol;
+                        if (isValid) {
+                            this.logger.info(`✅ DEBUG: Símbolo válido encontrado: ${symbol}`);
+                            return symbol;
+                        }
                     } else {
                         // Intentar con USDT añadido
                         const symbolWithUSDT = symbol + 'USDT';
+                        this.logger.info(`🔍 DEBUG: Verificando símbolo con USDT: ${symbolWithUSDT}`);
                         const isValid = await this.isValidCryptoSymbol(symbolWithUSDT);
-                        if (isValid) return symbolWithUSDT;
+                        if (isValid) {
+                            this.logger.info(`✅ DEBUG: Símbolo válido encontrado: ${symbolWithUSDT}`);
+                            return symbolWithUSDT;
+                        }
                     }
                 }
             }
@@ -480,18 +495,37 @@ class DefBinanceProfessionalBot {
                 }
             }
 
-            // Extraer Take Profits
-            const tpMatches = text.match(/(\d+)\s*%\s*\(\$\s*([\d.]+)\)/gi);
-            if (tpMatches) {
-                tpMatches.forEach(match => {
-                    const parts = match.match(/(\d+)\s*%\s*\(\$\s*([\d.]+)\)/i);
-                    if (parts) {
-                        info.takeProfits.push({
-                            percentage: parseInt(parts[1]),
-                            price: parseFloat(parts[2])
-                        });
-                    }
-                });
+            // Extraer Take Profits (formato mejorado para TP'S)
+            const tpSection = text.match(/TP'?S?[\s\S]*?(?=Apalancamiento|STOP|$)/i);
+            if (tpSection) {
+                const tpPrices = tpSection[0].match(/\$\s*([\d.]+)/g);
+                if (tpPrices) {
+                    tpPrices.forEach((match, index) => {
+                        const price = match.match(/\$\s*([\d.]+)/);
+                        if (price) {
+                            info.takeProfits.push({
+                                level: index + 1,
+                                price: parseFloat(price[1])
+                            });
+                        }
+                    });
+                }
+            }
+            
+            // Fallback: formato anterior con porcentajes
+            if (info.takeProfits.length === 0) {
+                const tpMatches = text.match(/(\d+)\s*%\s*\(\$\s*([\d.]+)\)/gi);
+                if (tpMatches) {
+                    tpMatches.forEach(match => {
+                        const parts = match.match(/(\d+)\s*%\s*\(\$\s*([\d.]+)\)/i);
+                        if (parts) {
+                            info.takeProfits.push({
+                                percentage: parseInt(parts[1]),
+                                price: parseFloat(parts[2])
+                            });
+                        }
+                    });
+                }
             }
 
             // Extraer Stop Loss
@@ -504,6 +538,15 @@ class DefBinanceProfessionalBot {
             const leverageMatch = text.match(/Apalancamiento.*?(\d+)\s*X/i);
             if (leverageMatch) {
                 info.leverage = parseInt(leverageMatch[1]);
+            }
+
+            // Log de información extraída
+            this.logger.info(`📊 INFO EXTRAÍDA: Dirección=${info.direction}, Entradas=${info.entryPrices.length}, TPs=${info.takeProfits.length}, SL=${info.stopLoss}, Leverage=${info.leverage}`);
+            if (info.entryPrices.length > 0) {
+                this.logger.info(`💰 Precios entrada: ${info.entryPrices.join(', ')}`);
+            }
+            if (info.takeProfits.length > 0) {
+                this.logger.info(`🎯 Take Profits: ${info.takeProfits.map(tp => `$${tp.price}`).join(', ')}`);
             }
 
             return info;
