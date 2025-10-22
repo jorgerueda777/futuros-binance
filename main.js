@@ -1651,11 +1651,22 @@ ${directionEmoji} <b>${symbol}</b>
             }
             
             // Validar que los datos no estén vacíos o corruptos
-            const validKlines = klines4h.filter(k => k && k.length >= 6 && !isNaN(parseFloat(k[4])));
+            const validKlines = klines4h.filter(k => {
+                if (!k || k.length < 6) return false;
+                const close = parseFloat(k[4]);
+                const high = parseFloat(k[2]);
+                const low = parseFloat(k[3]);
+                return !isNaN(close) && !isNaN(high) && !isNaN(low) && close > 0 && high > 0 && low > 0;
+            });
             this.logger.info(`📊 Velas válidas: ${validKlines.length}/${klines4h.length} para ${symbol}`);
             
             if (validKlines.length < 20) {
                 this.logger.error(`❌ Muy pocas velas válidas para FIBONACCI: ${validKlines.length}`);
+                // Mostrar algunas velas para debug
+                if (klines4h.length > 0) {
+                    this.logger.info(`📊 Ejemplo vela: ${JSON.stringify(klines4h[0])}`);
+                    this.logger.info(`📊 Close: ${parseFloat(klines4h[0][4])}, High: ${parseFloat(klines4h[0][2])}, Low: ${parseFloat(klines4h[0][3])}`);
+                }
                 return;
             }
             
@@ -1942,11 +1953,20 @@ ${directionEmoji} <b>${symbol}</b>
             }
             
             // Validar que los datos no estén vacíos o corruptos
-            const validKlines = klines.filter(k => k && k.length >= 6 && !isNaN(parseFloat(k[4])));
+            const validKlines = klines.filter(k => {
+                if (!k || k.length < 6) return false;
+                const close = parseFloat(k[4]);
+                return !isNaN(close) && close > 0;
+            });
             this.logger.info(`📊 Velas válidas EMA: ${validKlines.length}/${klines.length} para ${symbol}`);
             
             if (validKlines.length < 100) {
                 this.logger.error(`❌ Muy pocas velas válidas para EMA CROSS: ${validKlines.length}`);
+                // Mostrar debug para EMA
+                if (klines.length > 0) {
+                    this.logger.info(`📊 Ejemplo vela EMA: ${JSON.stringify(klines[0])}`);
+                    this.logger.info(`📊 Close EMA: ${parseFloat(klines[0][4])}`);
+                }
                 return;
             }
             
