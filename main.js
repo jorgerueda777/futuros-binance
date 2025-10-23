@@ -781,12 +781,34 @@ class DefBinanceProfessionalBot {
             const waitRecommendationText = (recommendation === '⚪ ESPERAR' && decision.waitRecommendation) ? 
                 `\n⏳ <b>QUÉ ESPERAR:</b> ${decision.waitRecommendation}` : '';
 
+            // Determinar la razón de decisión
+            let decisionReason = '🎯 SOPORTES Y RESISTENCIAS';
+            let decisionDetails = '';
+            
+            if (signalInfo.type === 'FIBONACCI') {
+                decisionReason = '🔢 FIBONACCI';
+                decisionDetails = ` (4H)`;
+            } else if (signalInfo.type === 'EMA_CROSS' || signalInfo.requiresEmaAnalysis) {
+                if (signalInfo.emaCross?.type === 'FALLBACK_API_ERROR') {
+                    decisionReason = '📊 EMA CROSS (FALLBACK)';
+                    decisionDetails = ` - API datos corruptos`;
+                } else {
+                    decisionReason = '📊 EMA CROSS';
+                    const emaFast = signalInfo.emaFast || 50;
+                    const emaSlow = signalInfo.emaSlow || 200;
+                    const timeframe = signalInfo.timeframe || 'm5';
+                    decisionDetails = ` ${emaFast}/${emaSlow} (${timeframe})`;
+                }
+            }
+
             const message = `
 🤖 <b>BOT F77 - ANÁLISIS PROFESIONAL</b>
 ${directionEmoji} <b>${symbol}</b>
 
 🎯 <b>RECOMENDACIÓN: ${recommendation}</b>
 📊 Confianza: ${decision.confidence}% ${confidenceEmoji}${waitRecommendationText}
+
+✅ <b>DECISIÓN TOMADA POR:</b> ${decisionReason}${decisionDetails}
 
 📋 <b>SEÑAL ORIGINAL:</b> ${signalInfo.direction || 'N/A'}
 💰 <b>Precio Actual:</b> $${decision.analysis?.currentPrice || 'N/A'}
