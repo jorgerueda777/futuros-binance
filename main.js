@@ -486,52 +486,7 @@ class DefBinanceProfessionalBot {
                 this.logger.info(`🔴 DIRECCIÓN DETECTADA: SHORT (BAJISTA)`);
             }
             
-            // Detectar si es señal FIBONACCI
-            if (/FIBO/i.test(text)) {
-                info.type = 'FIBONACCI';
-                info.timeframe = '4h'; // FIBONACCI siempre en 4H
-                this.logger.info(`🔢 Señal FIBONACCI detectada - Dirección: ${info.direction} - Timeframe: 4H`);
-                
-                // FORZAR dirección correcta para FIBONACCI
-                if (/LONG.*FIBO|FIBO.*LONG/i.test(text)) {
-                    info.direction = 'LONG';
-                    this.logger.info(`🔢 FIBONACCI LONG confirmado - ALCISTA`);
-                }
-                if (/SHORT.*FIBO|FIBO.*SHORT/i.test(text)) {
-                    info.direction = 'SHORT';
-                    this.logger.info(`🔢 FIBONACCI SHORT confirmado - BAJISTA`);
-                }
-                
-                // Marcar para análisis FIBONACCI específico
-                info.requiresFibonacci = true;
-            }
-            
-            // Detectar si es señal EMA CROSS
-            if (/EMA.*CROSS|ALERTAS.*EMA/i.test(text)) {
-                info.type = 'EMA_CROSS';
-                
-                // Extraer timeframe (m5, m15, h1, etc.)
-                const timeframeMatch = text.match(/\(([mh]\d+)\)/i);
-                if (timeframeMatch) {
-                    info.timeframe = timeframeMatch[1].toLowerCase();
-                    this.logger.info(`📊 Señal EMA CROSS detectada - Timeframe: ${info.timeframe}`);
-                } else {
-                    info.timeframe = '5m'; // Default para EMA CROSS
-                    this.logger.info(`📊 Señal EMA CROSS detectada - Timeframe: 5m (default)`);
-                }
-                
-                // Extraer EMAs (50/200, 20/50, etc.)
-                const emaMatch = text.match(/EMA.*?(\d+)\/(\d+)/i);
-                if (emaMatch) {
-                    info.emaFast = parseInt(emaMatch[1]);
-                    info.emaSlow = parseInt(emaMatch[2]);
-                    this.logger.info(`📈 EMAs detectadas: ${info.emaFast}/${info.emaSlow}`);
-                }
-                
-                // Para EMA CROSS, necesitamos determinar la dirección analizando el mercado
-                info.requiresEmaAnalysis = true;
-                this.logger.info(`📊 EMA CROSS requiere análisis de dirección`);
-            }
+            // FIBONACCI y EMA CROSS eliminados - Solo Smart Money
 
             // Extraer precios de entrada (mejorado)
             const entrySection = text.match(/ENTRADA[\s\S]*?(?=🚀|TP|Apalancamiento|STOP)/i);
@@ -610,15 +565,7 @@ class DefBinanceProfessionalBot {
         try {
             this.logger.info(`⚡ ANÁLISIS ULTRA RÁPIDO: ${symbol} ${signalInfo.direction || 'DETECTANDO'}`);
             
-            // Si es señal FIBONACCI, hacer análisis específico
-            if (signalInfo.requiresFibonacci) {
-                await this.analyzeFibonacci(symbol, signalInfo);
-            }
-            
-            // Si es señal EMA CROSS, hacer análisis específico
-            if (signalInfo.requiresEmaAnalysis) {
-                await this.analyzeEmaCross(symbol, signalInfo);
-            }
+            // FIBONACCI y EMA CROSS eliminados - Solo Smart Money
             
             const startTime = Date.now();
             
@@ -781,25 +728,9 @@ class DefBinanceProfessionalBot {
             const waitRecommendationText = (recommendation === '⚪ ESPERAR' && decision.waitRecommendation) ? 
                 `\n⏳ <b>QUÉ ESPERAR:</b> ${decision.waitRecommendation}` : '';
 
-            // Determinar la razón de decisión
-            let decisionReason = '🎯 SOPORTES Y RESISTENCIAS';
-            let decisionDetails = '';
-            
-            if (signalInfo.type === 'FIBONACCI') {
-                decisionReason = '🔢 FIBONACCI';
-                decisionDetails = ` (4H)`;
-            } else if (signalInfo.type === 'EMA_CROSS' || signalInfo.requiresEmaAnalysis) {
-                if (signalInfo.emaCross?.type === 'FALLBACK_API_ERROR') {
-                    decisionReason = '📊 EMA CROSS (FALLBACK)';
-                    decisionDetails = ` - API datos corruptos`;
-                } else {
-                    decisionReason = '📊 EMA CROSS';
-                    const emaFast = signalInfo.emaFast || 50;
-                    const emaSlow = signalInfo.emaSlow || 200;
-                    const timeframe = signalInfo.timeframe || 'm5';
-                    decisionDetails = ` ${emaFast}/${emaSlow} (${timeframe})`;
-                }
-            }
+            // SOLO SMART MONEY - SOPORTES Y RESISTENCIAS
+            const decisionReason = '🎯 SOPORTES Y RESISTENCIAS';
+            const decisionDetails = '';
 
             const message = `
 🤖 <b>BOT F77 - ANÁLISIS PROFESIONAL</b>
@@ -837,18 +768,9 @@ ${decision.reasons.map(r => `• ${r}`).join('\n')}
             // ⚡ SMARTMONEY PRINCIPAL - IA ELIMINADA COMPLETAMENTE
             if (decision.confidence >= 80 && this.autoTrader && this.autoTrader.isEnabled()) {
                 
-                // IDENTIFICAR RAZÓN DE LA DECISIÓN
-                let decisionReason = '';
-                if (signalInfo.fibonacci && signalInfo.fibonacci.currentAnalysis.atOptimalLevel) {
-                    decisionReason = 'FIBONACCI';
-                    this.logger.info(`✅ DECISIÓN TOMADA POR FIBONACCI - Ejecutando trade`);
-                } else if (signalInfo.emaCross && signalInfo.emaCross.confidence >= 70) {
-                    decisionReason = 'EMA CROSS';
-                    this.logger.info(`✅ DECISIÓN TOMADA POR EMA CROSS - Ejecutando trade`);
-                } else {
-                    decisionReason = 'SOPORTES Y RESISTENCIAS';
-                    this.logger.info(`✅ DECISIÓN TOMADA POR SOPORTES Y RESISTENCIAS - Ejecutando trade`);
-                }
+                // SOLO SMART MONEY - SOPORTES Y RESISTENCIAS
+                const decisionReason = 'SOPORTES Y RESISTENCIAS';
+                this.logger.info(`✅ DECISIÓN TOMADA POR SOPORTES Y RESISTENCIAS - Ejecutando trade`);
                 
                 this.logger.info(`⚡ EJECUTANDO SmartMoney (${decisionReason}): ${symbol} - ${decision.confidence}%`);
                 
